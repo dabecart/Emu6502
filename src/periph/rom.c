@@ -23,7 +23,7 @@ void initializeROM(Peripheral* periph, const char* romFile) {
     fseek(file, 0, SEEK_END);
     rom->romFileSize = ftell(file);
 
-    int directionRange = periph->upperDir - periph->lowerDir;
+    int directionRange = periph->sizeDir - periph->baseDir;
     if(directionRange > rom->romFileSize) {
         printf("The input file size (%ld) is smaller than the size of the simulated ROM (%d). The "
         "requested content from the CPU that is out of bounds will be outputted as 0xFF.\n",
@@ -46,7 +46,7 @@ void processROM(Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint
 
     PeripheralROM* rom = (PeripheralROM*) periph->data;
 
-    int readDirection = dir - periph->lowerDir;
+    int readDirection = dir - periph->baseDir;
     if(readDirection >= rom->romFileSize){
         // Reading out of bounds, returning 0xFF.
         *out = 0xFF;

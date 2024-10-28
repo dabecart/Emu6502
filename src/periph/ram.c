@@ -7,7 +7,7 @@ void initializeRAM(Peripheral* periph) {
     }
 
     PeripheralRAM* ram = (PeripheralRAM*) malloc(sizeof(PeripheralRAM));
-    ram->size = periph->upperDir - periph->lowerDir;
+    ram->size = periph->sizeDir - periph->baseDir;
     ram->memory = (uint8_t*) malloc(ram->size);
 
     // Pass the values and functions to the peripheral struct.
@@ -20,7 +20,7 @@ void processRAM(Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint
     if(periph == NULL) return;
 
     PeripheralRAM* ram = (PeripheralRAM*) periph->data;
-    int bufferDir = dir - periph->lowerDir;
+    int bufferDir = dir - periph->baseDir;
 
     if(rw) {    
         // CPU is reading from RAM.

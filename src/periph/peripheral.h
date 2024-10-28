@@ -8,8 +8,8 @@
 #define PERIPHERAL_MAX_COUNT 5
 
 typedef struct Peripheral {
-    uint16_t lowerDir;
-    uint16_t upperDir;
+    int baseDir;  // Included in range.
+    int sizeDir;  // Not included in range.
 
     // Pointer to an struct holding the data for the specific peripheral. Cast it to the 
     // correspondent type to use it.

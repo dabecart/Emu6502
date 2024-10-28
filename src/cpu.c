@@ -270,7 +270,8 @@ void initCPU(CPU* cpu) {
     cpu->x = 0;
     cpu->y = 0;
     cpu->stack = 0;
-    cpu->status.val = 0;
+    cpu->status.val = 0b00100000;
+    cpu->haltProgram = 0;
 
     // Get the RESB vector (the initial memory position of the program).
     interactWithPeripheral(0xFFFC, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
@@ -288,7 +289,7 @@ void routineCPU(CPU* cpu) {
     
     CPUInstruction instruction = instructions[opCode];
     if(instruction.addressing == INVALID_ADDRS){
-        printf("Invalid instruction found at PC: 0x%04x", cpu->pc);
+        printf("Invalid instruction found at PC: 0x%04x (opcode: 0x%02x).\n", cpu->pc, opCode);
         exit(-1);
     }
 
@@ -373,14 +374,18 @@ void routineCPU(CPU* cpu) {
 
     printInstruction(cpu, &instruction, rawArgsBuffer, opDirection, opData);
 
+    // Increment the cycle counter.
+    cpu->clockCount += instruction.clockCycles;
     // Increment the PC.
     cpu->pc += instruction.byteLength;
 }
 
 void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, uint16_t dir, uint8_t data) {
+    printf("\033[1F");  // Go up a line.
+    
     printf("0x%04x: %02x  ", cpu->pc, instruction->opCode);
     for(int i = 1; i < 3; i++) {
-        if(i <= instruction->byteLength){
+        if((i+1) <= instruction->byteLength){
             printf("%02x  ", *(rawArgs+i-1));
         }else{
             printf("    ");
@@ -388,76 +393,83 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
     }
 
     char mnemonic[4] = {instruction->mnemonic[0], instruction->mnemonic[1], instruction->mnemonic[2], 0};
-    printf("    -   %s ", mnemonic);
+    printf("-  %s ", mnemonic);
     
+    uint16_t rawArg_u16 = rawArgs[0] | (rawArgs[1] << 8);
     switch(instruction->addressing) {
         case ABS_ADDRS:
-            printf("#$%04x", dir);
+            printf("$%04x             ", rawArg_u16);
         break;
 
         case ABS_INDEXED_INDIRECT_ADDRS:
-
+            printf("($%04x,x) -> $%04x", rawArg_u16, dir);
         break;
 
         case ABS_INDEXED_X_ADDRS:
-
+            printf("$%04x,x   -> $%04x", rawArg_u16, dir);
         break;
 
         case ABS_INDEXED_Y_ADDRS:
-
+            printf("$%04x,y   -> $%04x", rawArg_u16, dir);
         break;
 
         case ABS_INDIRECT_ADDRS:
-
+            printf("($%04x)   -> $%04x", rawArg_u16, dir);
         break;
 
         case ACCUMULATOR_ADDRS:
-
+            printf("A                 ");
         break;
 
         case IMMEDIATE_ADDRS:
-            printf("#$%04x", dir);
+            printf("#$%02x              ", dir);
         break;
 
         case IMPLIED_ADDRS:
-
-        break;
-
         case PROGRAM_COUNTER_ADDRS:
-
-        break;
-
         case STACK_ADDRS:
-
+            printf("                  ");
         break;
 
         case ZP_ADDRS:
-
+            printf("$%02x               ", rawArgs[0]);
         break;
 
         case ZP_INDEXED_INDIRECT_ADDRS:
-
+            printf("($%02x,x)   -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDEXED_X_ADDRS:
-
+            printf("$%02x,x     -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDEXED_Y_ADDRS:
-
+            printf("$%02x,y     -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDIRECT_ADDRS:
-
+            printf("($%02x)     -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDIRECT_INDEXED_Y_ADDRS:
-
+            printf("($%02x),y   -> $%04x", rawArgs[0], dir);
         break;
-
     }
 
-    printf("\n");
+    printf("   %02x  %02x  %02x  0x1%04x   %d %d 1 %d %d %d %d %d   %*s\n", 
+           cpu->acc, cpu->x, cpu->y, cpu->stack,
+           cpu->status.flags.negative,
+           cpu->status.flags.overflow,
+           cpu->status.flags.brkCmd,
+           cpu->status.flags.decimalMode,
+           cpu->status.flags.irqDisable,
+           cpu->status.flags.zero,
+           cpu->status.flags.carry,
+           CPU_COMMENT_LENGTH, cpu->funcComment);
+
+    printf("\33[38;5;0;48;5;255m"); // Invert color scheme.
+    printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK     N V 1 B D I Z C   FUNCTION COMMENT                ");
+    printf("\33[m\n");   // Clear style, go up a line.
 }
 
 
@@ -502,7 +514,7 @@ void BPL_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 }
 
 void BRK_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->haltProgram = 1;
 }
 
 void BVC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {

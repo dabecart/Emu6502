@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#define CPU_COMMENT_LENGTH 32
+
 typedef struct CPUFlags {
     uint8_t carry       : 1;
     uint8_t zero        : 1;
@@ -33,6 +35,12 @@ typedef struct CPU {
 
     // Statistics.
     unsigned long long clockCount;
+
+    // Flags. 
+    uint8_t haltProgram;
+
+    // Function comments.
+    char funcComment[CPU_COMMENT_LENGTH];
 } CPU;
 
 typedef enum CPUAddressing {

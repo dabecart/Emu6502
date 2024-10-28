@@ -29,7 +29,7 @@ void interactWithPeripheral(uint16_t direction, uint8_t data, PeripheralInteract
     Peripheral* per;
     for(int i = 0; i < peripheralCount; i++){
         per = peripheralList[i];
-        if(direction >= per->lowerDir && direction < per->upperDir){
+        if(direction >= per->baseDir && direction < per->sizeDir){
             per->process(per, direction, data, rw, out);
             return;
         }

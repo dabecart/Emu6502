@@ -10,12 +10,12 @@
 #include "ram.h"
 
 Peripheral rom = {
-    .lowerDir = 0x8000,
-    .upperDir = 0xFFFF,
+    .baseDir = 0x8000,
+    .sizeDir = 0x10000,
 };
 Peripheral ram = {
-    .lowerDir = 0x0000,
-    .upperDir = 0x7FFF,
+    .baseDir = 0x0000,
+    .sizeDir = 0x8000,
 };
 CPU cpu;
 
@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
     signal(SIGINT, handleSIGINT);
 
     // Simulate clock edge.
-    while(continueLoop) {
+    while(continueLoop && !cpu.haltProgram) {
         routineCPU(&cpu);
 
         #ifdef _WIN32
