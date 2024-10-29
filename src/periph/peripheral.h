@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "cpu.h"
 
 #define PERIPHERAL_MAX_COUNT 5
 
@@ -16,13 +17,14 @@ typedef struct Peripheral {
     void* data;
 
     // The process function as arguments:
+    // - CPU* cpu. Pointer to the CPU to which this peripheral is connected.
     // - Peripheral* periph. Pointer to the current peripheral.
     // - uint16_t direction. The value on the direction bus.
     // - uint8_t data. The value on the data bus.
     // - uint8_t R/#W. On 1 is reading, on 0 is writing.
     // - uint8_t* output. If R/#W = 1, something should be outputted here. The pointer will always
     // be given by the called to this function, that is, this pointer cannot be NULL if reading.
-    void (*process)(struct Peripheral*, uint16_t, uint8_t, uint8_t, uint8_t*);
+    void (*process)(void*, struct Peripheral*, uint16_t, uint8_t, uint8_t, uint8_t*);
 
     // Cleanup function.
     void (*free)(struct Peripheral*);
@@ -49,6 +51,7 @@ void freePeripherals();
 
 /****************************************** FUNCTION ***********************************************
  \brief Reads or writes data to a peripheral.
+ \param cpu. Pointer to the CPU controlling the bus to which all the peripherals are connected.s
  \param direction. Value of the direction buffer.
  \param data. Value of the data buffer.
  \param rw. If 0, the CPU is reading from the peripheral. If other than 1, it's writing to it.
@@ -56,7 +59,7 @@ void freePeripherals();
  to this pointer.
  \return None.
 ***************************************************************************************************/
-void interactWithPeripheral(uint16_t direction, uint8_t data, 
+void interactWithPeripheral(void* cpu, uint16_t direction, uint8_t data, 
                             PeripheralInteraction rw, uint8_t* out);
 
 #endif // PERIPHERAL_h

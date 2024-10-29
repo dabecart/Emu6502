@@ -51,11 +51,11 @@ int main(int argc, char **argv) {
     while(continueLoop && !cpu.haltProgram) {
         routineCPU(&cpu);
 
-        #ifdef _WIN32
-            Sleep(1000);
-        #else
-            sleep(1);
-        #endif
+        // #ifdef _WIN32
+        //     Sleep(1000);
+        // #else
+        //     sleep(1);
+        // #endif
     }
 
     freePeripherals();

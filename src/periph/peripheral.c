@@ -25,12 +25,13 @@ void freePeripherals() {
     }
 }
 
-void interactWithPeripheral(uint16_t direction, uint8_t data, PeripheralInteraction rw, uint8_t* out) {
+void interactWithPeripheral(
+    void* cpu, uint16_t direction, uint8_t data, PeripheralInteraction rw, uint8_t* out) {
     Peripheral* per;
     for(int i = 0; i < peripheralCount; i++){
         per = peripheralList[i];
         if(direction >= per->baseDir && direction < per->sizeDir){
-            per->process(per, direction, data, rw, out);
+            per->process(cpu, per, direction, data, rw, out);
             return;
         }
     }

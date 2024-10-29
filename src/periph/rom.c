@@ -36,7 +36,8 @@ void initializeROM(Peripheral* periph, const char* romFile) {
     periph->free = freeROM;
 }
 
-void processROM(Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out) {
+void processROM(
+    void* pcpu, Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out) {
     if(periph == NULL) return;
 
     if(!rw){

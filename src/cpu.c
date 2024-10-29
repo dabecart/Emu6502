@@ -133,7 +133,7 @@ const CPUInstruction instructions[] = {
     {"STA", 0x81, ZP_INDEXED_INDIRECT_ADDRS,     2, 6, STA_ins_},  // STA: Store Accumulator in Memory
     {"IND", 0x82, INVALID_ADDRS},
     {"IND", 0x83, INVALID_ADDRS},
-    {"STY", 0x84, ZP_ADDRS,                      2, 3, STY_ins_},  // STY: Sore Index Y in Memory
+    {"STY", 0x84, ZP_ADDRS,                      2, 3, STY_ins_},  // STY: Store Index Y in Memory
     {"STA", 0x85, ZP_ADDRS,                      2, 3, STA_ins_},  // STA: Store Accumulator in Memory
     {"STX", 0x86, ZP_ADDRS,                      2, 3, STX_ins_},  // STX: Store Index X in Memory
     {"IND", 0x87, INVALID_ADDRS},
@@ -141,7 +141,7 @@ const CPUInstruction instructions[] = {
     {"IND", 0x89, INVALID_ADDRS},
     {"TXA", 0x8a, IMPLIED_ADDRS,                 1, 2, TXA_ins_},  // TXA: Transfer Index X to Accumulator
     {"IND", 0x8b, INVALID_ADDRS},
-    {"STY", 0x8c, ABS_ADDRS,                     3, 4, STY_ins_},  // STY: Sore Index Y in Memory
+    {"STY", 0x8c, ABS_ADDRS,                     3, 4, STY_ins_},  // STY: Store Index Y in Memory
     {"STA", 0x8d, ABS_ADDRS,                     3, 4, STA_ins_},  // STA: Store Accumulator in Memory
     {"STX", 0x8e, ABS_ADDRS,                     3, 4, STX_ins_},  // STX: Store Index X in Memory
     {"IND", 0x8f, INVALID_ADDRS},
@@ -149,7 +149,7 @@ const CPUInstruction instructions[] = {
     {"STA", 0x91, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 6, STA_ins_},  // STA: Store Accumulator in Memory
     {"IND", 0x92, INVALID_ADDRS},
     {"IND", 0x93, INVALID_ADDRS},
-    {"STY", 0x94, ZP_INDEXED_X_ADDRS,            2, 4, STY_ins_},  // STY: Sore Index Y in Memory
+    {"STY", 0x94, ZP_INDEXED_X_ADDRS,            2, 4, STY_ins_},  // STY: Store Index Y in Memory
     {"STA", 0x95, ZP_INDEXED_X_ADDRS,            2, 4, STA_ins_},  // STA: Store Accumulator in Memory
     {"STX", 0x96, ZP_INDEXED_Y_ADDRS,            2, 4, STX_ins_},  // STX: Store Index X in Memory
     {"IND", 0x97, INVALID_ADDRS},
@@ -274,8 +274,8 @@ void initCPU(CPU* cpu) {
     cpu->haltProgram = 0;
 
     // Get the RESB vector (the initial memory position of the program).
-    interactWithPeripheral(0xFFFC, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
-    interactWithPeripheral(0xFFFD, 0, READ_PERIPH, ((uint8_t*) (&cpu->pc)) + 1);
+    interactWithPeripheral(cpu, 0xFFFC, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
+    interactWithPeripheral(cpu, 0xFFFD, 0, READ_PERIPH, ((uint8_t*) (&cpu->pc)) + 1);
 
     printf("CPU starting from 0x%04x\n", cpu->pc);
 
@@ -285,7 +285,7 @@ void initCPU(CPU* cpu) {
 void routineCPU(CPU* cpu) {
     // Get the OP code.
     uint8_t opCode;
-    interactWithPeripheral(cpu->pc, 0, READ_PERIPH, &opCode);
+    interactWithPeripheral(cpu, cpu->pc, 0, READ_PERIPH, &opCode);
     
     CPUInstruction instruction = instructions[opCode];
     if(instruction.addressing == INVALID_ADDRS){
@@ -298,12 +298,13 @@ void routineCPU(CPU* cpu) {
     // This will only work on little endian devices!
     uint8_t* rawArgsBuffer = (uint8_t*) (&rawArgs);
     for(int i = 0; i < instruction.byteLength - 1; i++) {
-        interactWithPeripheral(cpu->pc + 1 + i, 0, READ_PERIPH, rawArgsBuffer+i);
+        interactWithPeripheral(cpu, cpu->pc + 1 + i, 0, READ_PERIPH, rawArgsBuffer+i);
     }
 
     // Calculate the operation argument/direction based on the addressing type and the instruction
     // arguments.
     uint16_t opDirection = rawArgs;
+    uint8_t* rawOpDirection = (uint8_t*) (&opDirection);
     uint8_t opData = 0;
 
     switch(instruction.addressing) {
@@ -322,30 +323,35 @@ void routineCPU(CPU* cpu) {
 
         case PROGRAM_COUNTER_ADDRS:
             // Only used on branch instructions. If the branch is taken, jump to opData.
-            opData = opDirection + cpu->pc;
+            opDirection = cpu->pc + (int8_t)opDirection;
         break;
 
         case ABS_INDIRECT_ADDRS:    // Only used on JMP instruction.
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + 1, 0, READ_PERIPH, rawOpDirection + 1);
+            break;
+
         case ABS_ADDRS:
         case ZP_ADDRS:
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_X_ADDRS:
         case ZP_INDEXED_X_ADDRS:
             opDirection += cpu->x;
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_Y_ADDRS:
         case ZP_INDEXED_Y_ADDRS:
             opDirection += cpu->y;
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
         break;
 
         case ZP_INDIRECT_ADDRS:
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, (uint8_t*) &opDirection);
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + 1, 0, READ_PERIPH, rawOpDirection + 1);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_INDIRECT_ADDRS:
@@ -354,14 +360,16 @@ void routineCPU(CPU* cpu) {
             // the ZP is only eight bits.
 
         case ZP_INDEXED_INDIRECT_ADDRS:
-            interactWithPeripheral(opDirection + cpu->x, 0, READ_PERIPH, (uint8_t*) &opDirection);
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection + cpu->x, 0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + cpu->x + 1, 0, READ_PERIPH, rawOpDirection + 1);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
         break;
 
         case ZP_INDIRECT_INDEXED_Y_ADDRS:
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, (uint8_t*) &opDirection);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + 1, 0, READ_PERIPH, rawOpDirection + 1);
             opDirection += cpu->y;
-            interactWithPeripheral(opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
         break;
 
         default:
@@ -426,11 +434,11 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
         break;
 
         case IMPLIED_ADDRS:
-        case PROGRAM_COUNTER_ADDRS:
         case STACK_ADDRS:
             printf("                  ");
         break;
 
+        case PROGRAM_COUNTER_ADDRS:
         case ZP_ADDRS:
             printf("$%02x               ", rawArgs[0]);
         break;
@@ -456,7 +464,7 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
         break;
     }
 
-    printf("   %02x  %02x  %02x  0x1%04x   %d %d 1 %d %d %d %d %d   %*s\n", 
+    printf("   %02x  %02x  %02x  0x01%02x   %d %d 1 %d %d %d %d %d   %*s", 
            cpu->acc, cpu->x, cpu->y, cpu->stack,
            cpu->status.flags.negative,
            cpu->status.flags.overflow,
@@ -466,233 +474,539 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
            cpu->status.flags.zero,
            cpu->status.flags.carry,
            CPU_COMMENT_LENGTH, cpu->funcComment);
+    
+    // Reset comment string.
+    cpu->funcComment[0] = 0;
 
-    printf("\33[38;5;0;48;5;255m"); // Invert color scheme.
-    printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK     N V 1 B D I Z C   FUNCTION COMMENT                ");
+    printf("\n\33[38;5;0;48;5;255m"); // Invert color scheme.
+    printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK    N V 1 B D I Z C   FUNCTION COMMENT               ");
     printf("\33[m\n");   // Clear style, go up a line.
 }
 
 
+/***************************************************************************************************
+ * 6502 Instructions
+ **************************************************************************************************/
+
+// Add Memory to Accumulator with Carry
 void ADC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    int16_t realResult;
+    int8_t result;
 
+    if(cpu->status.flags.decimalMode) {
+        printf("Decimal mode in ADC not supported!");
+        cpu->haltProgram = 1;
+        return;
+    }else {
+        // The mathematical result.
+        realResult = (int8_t)(cpu->acc) + (int8_t)(data) + cpu->status.flags.carry;
+        // The trimmed result with sign.
+        result = realResult & 0xFF;
+    }
+
+    // A carry occurs when the accumulator (without sign) is bigger than the result value (without
+    // sign too). Think about adding two positive numbers: the result must always be greater than 
+    // the operands. If adding them result in a smaller number, that means that there's a digit to 
+    // the left of the result that has been "deleted" after masking; that is, the carry. 
+    cpu->status.flags.carry = cpu->acc > ((uint8_t)result);
+    // Gets rid of the sign but keeps the sign.
+    cpu->acc = result;  
+    // An overflow occurs when the sign of the real mathematical operation differs from the final
+    // result.
+    cpu->status.flags.overflow = (result > 0) ^ (realResult > 0);
+
+    // The sign is given by the most significant bit in 2's complement.
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }
 
+// AND Memory with Accumulator
 void AND_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->acc &= data;
 
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }
 
+// Shift Left One Bit (Memory or Accumulator)
 void ASL_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    uint8_t result;
+    
+    // Store the result on the source of the data.
+    if(instruction->addressing == ACCUMULATOR_ADDRS) {
+        cpu->status.flags.carry = cpu->acc >= 0x80;
+        result = cpu->acc << 1;
+        cpu->acc = result;
+    }else {
+        cpu->status.flags.carry = data >= 0x80;
+        result = data << 1;
+        interactWithPeripheral(cpu, dir, result, WRITE_PERIPH, NULL);
+    }
 
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.zero = result == 0;
 }
 
+// Branch on Carry Clear
 void BCC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(!cpu->status.flags.carry) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "C=0 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "C=1 -> Jump not taken");
+    }
 }
 
+// Branch on Carry Set
 void BCS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(cpu->status.flags.carry) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "C=1 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "C=0 -> Jump not taken");
+    }
 }
 
+// Branch on Result Zero
 void BEQ_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(cpu->status.flags.zero) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "Z=1 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "Z=0 -> Jump not taken");
+    }
 }
 
+// Test Bits in Memory with Accumulator
 void BIT_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.zero = cpu->acc == data;
+    // Store on the negative the 7th bit of the data.
+    cpu->status.flags.negative = data >= 0x80;
+    // Store on the negative the 6th bit of the data.
+    cpu->status.flags.overflow = (data & 0x40) != 0;
 }
 
+// Branch on Result Minus
 void BMI_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(cpu->status.flags.negative) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "N=1 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "N=0 -> Jump not taken");
+    }
 }
 
+// Branch on Result not Zero
 void BNE_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(!cpu->status.flags.zero) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "Z=0 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "Z=1 -> Jump not taken");
+    }
 }
 
+// Branch on Result Plus
 void BPL_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(!cpu->status.flags.negative) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "N=0 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "N=1 -> Jump not taken");
+    }
 }
 
 void BRK_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
     cpu->haltProgram = 1;
 }
 
+// Branch on Overflow Clear
 void BVC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(!cpu->status.flags.overflow) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "V=0 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "V=1 -> Jump not taken");
+    }
 }
 
+// Branch on Overflow Set
 void BVS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    if(cpu->status.flags.overflow) {
+        // The data variable is the displacement or delta to add to the PC.
+        sprintf(cpu->funcComment, "V=1 -> Jump taken to 0x%04x", dir);
+        cpu->pc = dir;
+    }else{
+        sprintf(cpu->funcComment, "Z=0 -> Jump not taken");
+    }
 }
 
+// Clear Carry Flag
 void CLC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.carry = 0;
 }
 
+// Clear Decimal Mode
 void CLD_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.decimalMode = 0;
 }
 
+// Clear Interrupt Disable Bit
 void CLI_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.irqDisable = 0;
 }
 
+// Clear Overflow Flag
 void CLV_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.overflow = 0;
 }
 
+// Compare Memory with Accumulator
 void CMP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    uint8_t result = cpu->acc - data;
+    cpu->status.flags.zero = result == 0;
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.carry = cpu->acc >= data;
 }
 
+// Compare Memory and Index X
 void CPX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    uint8_t result = cpu->x - data;
+    cpu->status.flags.zero = result == 0;
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.carry = cpu->x >= data;
 }
 
+// Compare Memory and Index Y
 void CPY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    uint8_t result = cpu->y - data;
+    cpu->status.flags.zero = result == 0;
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.carry = cpu->y >= data;
 }
 
+// Decrement Memory by One
 void DEC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    data--;
+    
+    interactWithPeripheral(cpu, dir, data, WRITE_PERIPH, NULL);
 
+    cpu->status.flags.zero = data == 0;
+    cpu->status.flags.negative = data >= 0x80;
 }
 
+// Decrement Index X by One
 void DEX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->x--;
 
+    cpu->status.flags.zero = cpu->x == 0;
+    cpu->status.flags.negative = cpu->x >= 0x80;
 }
 
+// Decrement Index Y by One
 void DEY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->y--;
 
+    cpu->status.flags.zero = cpu->y == 0;
+    cpu->status.flags.negative = cpu->y >= 0x80;
 }
 
+// Exclusive-OR Memory with Accumulator
 void EOR_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->acc ^= data;
 
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }
 
+// Increment Memory by One
 void INC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    data++;
+    
+    interactWithPeripheral(cpu, dir, data, WRITE_PERIPH, NULL);
 
+    cpu->status.flags.zero = data == 0;
+    cpu->status.flags.negative = data >= 0x80;
 }
 
+// Increment Index X by One
 void INX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->x++;
 
+    cpu->status.flags.zero = cpu->x == 0;
+    cpu->status.flags.negative = cpu->x >= 0x80;
 }
 
+// Increment Index Y by One
 void INY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->y++;
 
+    cpu->status.flags.zero = cpu->y == 0;
+    cpu->status.flags.negative = cpu->y >= 0x80;
 }
 
+// Jump to New Location
 void JMP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->pc = dir - instruction->byteLength;
 }
 
+// Jump to New Location Saving Return Address
 void JSR_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    // This instruction is three bytes long, but only 2 is added so that the RTS can later add 1 
+    // final to the PC.
+    uint16_t newStackedPC = cpu->pc + 2;
+    interactWithPeripheral(cpu, 0x0100 | cpu->stack--, newStackedPC >> 8, WRITE_PERIPH, NULL);
+    interactWithPeripheral(cpu, 0x0100 | cpu->stack--, newStackedPC, WRITE_PERIPH, NULL);
+    cpu->pc = dir - instruction->byteLength;
 
+    sprintf(cpu->funcComment, "Jump to subroutine at 0x%04x", dir);
 }
 
+// Load Accumulator with Memory
 void LDA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->acc = data;
+    cpu->status.flags.zero = data == 0;
+    cpu->status.flags.negative = data >= 0x80;
 }
 
+// Load Index X with Memory
 void LDX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->x = data;
+    cpu->status.flags.zero = data == 0;
+    cpu->status.flags.negative = data >= 0x80;
 }
 
+// Load Index Y with Memory
 void LDY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->y = data;
+    cpu->status.flags.zero = data == 0;
+    cpu->status.flags.negative = data >= 0x80;
 }
 
+// Shift One Bit Right (Memory or Accumulator)
 void LSR_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    uint8_t result;
+    
+    // Store the result on the source of the data.
+    if(instruction->addressing == ACCUMULATOR_ADDRS) {
+        cpu->status.flags.carry = cpu->acc & 0x01;
+        result = cpu->acc >> 1;
+        cpu->acc = result;
+    }else {
+        cpu->status.flags.carry = data & 0x01;
+        result = data >> 1;
+        interactWithPeripheral(cpu, dir, result, WRITE_PERIPH, NULL);
+    }
 
+    cpu->status.flags.negative = 0;
+    cpu->status.flags.zero = result == 0;
 }
 
+// No Operation
 void NOP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    // Nothing to do here :)
 }
 
+// OR Memory with Accumulator
 void ORA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->acc |= data;
 
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }
 
+// Push Accumulator on Stack
 void PHA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->acc, WRITE_PERIPH, NULL);
 }
 
+// Push Processor Status on Stack
 void PHP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->status.val, WRITE_PERIPH, NULL);
 }
 
+// Pull Accumulator from Stack
 void PLA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, &cpu->acc);
 }
 
+// Pull Processor Status from Stack
 void PLP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, &cpu->status.val);
 }
 
+// Rotate One Bit Left (Memory or Accumulator)
 void ROL_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    uint8_t result;
+    uint8_t previousCarry = cpu->status.flags.carry;
 
+    // Store the result on the source of the data.
+    if(instruction->addressing == ACCUMULATOR_ADDRS) {
+        cpu->status.flags.carry = cpu->acc >= 0x80;
+        result = cpu->acc << 1 | previousCarry;
+        cpu->acc = result;
+    }else {
+        cpu->status.flags.carry = data >= 0x80;
+        result = data << 1 | previousCarry;
+        interactWithPeripheral(cpu, dir, result, WRITE_PERIPH, NULL);
+    }
+
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.zero = result == 0;
 }
 
+// Rotate One Bit Right (Memory or Accumulator)
 void ROR_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    uint8_t result;
+    uint8_t previousCarry = cpu->status.flags.carry;
 
+    // Store the result on the source of the data.
+    if(instruction->addressing == ACCUMULATOR_ADDRS) {
+        cpu->status.flags.carry = cpu->acc & 0x01;
+        result = cpu->acc >> 1 | (previousCarry << 7);
+        cpu->acc = result;
+    }else {
+        cpu->status.flags.carry = data & 0x01;
+        result = data >> 1 | (previousCarry << 7);
+        interactWithPeripheral(cpu, dir, result, WRITE_PERIPH, NULL);
+    }
+
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.zero = result == 0;
 }
 
+// Return from Interrupt
 void RTI_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, &cpu->status.val);
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, (uint8_t*)&cpu->pc);
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, ((uint8_t*)&cpu->pc + 1));
+    cpu->pc -= instruction->byteLength;
 }
 
+// Return from Subroutine
 void RTS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, (uint8_t*) &cpu->pc);
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, ((uint8_t*) &cpu->pc) + 1);
 
+    // The loaded PC has 1 less than the real memory direction. This increment will be done in the 
+    // routineCPU as this function is 1 byte long.
+    sprintf(cpu->funcComment, "Returning to 0x%04x", cpu->pc + 1);
 }
 
+// Subtract Memory from Accumulator with Borrow
 void SBC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    int16_t realResult;
+    int8_t result;
 
+    if(cpu->status.flags.decimalMode) {
+        printf("Decimal mode in SBC not supported!");
+        cpu->haltProgram = 1;
+        return;
+    }else {
+        // The mathematical result.
+        realResult = (int8_t)(cpu->acc) - (int8_t)(data) - (!cpu->status.flags.carry);
+        // The trimmed result with sign.
+        result = realResult & 0xFF;
+    }
+
+    // A carry occurs when the accumulator (without sign) is smaller than the result value (without
+    // sign too). Think about subtracting two positive numbers: the result must always be smaller 
+    // than the first operand. If subtracting them result in a bigger number, that means that 
+    // there's a digit to the left of the result that has been "deleted" after masking; that is, 
+    // the carry. 
+    cpu->status.flags.carry = cpu->acc < ((uint8_t)result);
+    // Gets rid of the sign but keeps the sign.
+    cpu->acc = result;  
+    // An overflow occurs when the sign of the real mathematical operation differs from the final
+    // result.
+    cpu->status.flags.overflow = (result > 0) ^ (realResult > 0);
+
+    // The sign is given by the most significant bit in 2's complement.
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }
 
+// Set Carry Flag
 void SEC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.carry = 1;
 }
 
+// Set Decimal Flag
 void SED_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.decimalMode = 1;
 }
 
+// Set Interrupt Disable Status
 void SEI_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->status.flags.irqDisable = 1;
 }
 
+// Store Accumulator in Memory
 void STA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, dir, cpu->acc, WRITE_PERIPH, NULL);
 }
 
+// Store Index X in Memory
 void STX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, dir, cpu->x, WRITE_PERIPH, NULL);
 }
 
+// Store Index Y in Memory
 void STY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    interactWithPeripheral(cpu, dir, cpu->y, WRITE_PERIPH, NULL);
 }
 
+// Transfer Accumulator to Index X
 void TAX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->x = cpu->acc;
 
+    cpu->status.flags.negative = cpu->x >= 0x80;
+    cpu->status.flags.zero = cpu->x == 0;
 }
 
+// Transfer Accumulator to Index Y
 void TAY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->y = cpu->acc;
 
+    cpu->status.flags.negative = cpu->y >= 0x80;
+    cpu->status.flags.zero = cpu->y == 0;
 }
 
+// Transfer Stack Pointer to Index X
 void TSX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->x = cpu->stack;
 
+    cpu->status.flags.negative = cpu->x >= 0x80;
+    cpu->status.flags.zero = cpu->x == 0;
 }
 
+// Transfer Index X to Accumulator
 void TXA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->acc = cpu->x;
 
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }
 
+// Transfer Index X to Stack Register
 void TXS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->stack = cpu->x;
 
+    cpu->status.flags.negative = cpu->stack >= 0x80;
+    cpu->status.flags.zero = cpu->stack == 0;
 }
 
+// Transfer Index Y to Accumulator
 void TYA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    cpu->acc = cpu->y;
 
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }

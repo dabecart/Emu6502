@@ -1,10 +1,10 @@
 #ifndef CPU_h
 #define CPU_h
 
-#include "peripheral.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "peripheral.h"
 
 #define CPU_COMMENT_LENGTH 32
 

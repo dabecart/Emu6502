@@ -10,7 +10,7 @@ typedef struct PeripheralRAM{
 
 void initializeRAM(Peripheral* periph);
 
-void processRAM(Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out);
+void processRAM(void* pcpu, Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out);
 
 void freeRAM(Peripheral* periph);
 

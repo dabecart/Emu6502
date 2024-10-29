@@ -10,7 +10,7 @@ typedef struct PeripheralROM{
 
 void initializeROM(Peripheral* periph, const char* romFile);
 
-void processROM(Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out);
+void processROM(void* pcpu, Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out);
 
 void freeROM(Peripheral* periph);
 
