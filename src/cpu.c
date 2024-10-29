@@ -911,7 +911,7 @@ void RTS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 
 // Subtract Memory from Accumulator with Borrow
 void SBC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-    uint16_t realResult;
+    int16_t realResult;
     uint8_t result;
 
     if(cpu->status.flags.decimalMode) {
@@ -920,14 +920,14 @@ void SBC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
         return;
     }else {
         // The mathematical result.
-        realResult = (uint16_t)(cpu->acc) - (uint16_t)(data) - (!cpu->status.flags.carry);
+        realResult = (int16_t)(cpu->acc) - (int16_t)(data) - (!cpu->status.flags.carry);
         // The trimmed result with sign.
         result = realResult & 0xFF;
     }
 
     // The carry bit is set if the result is non-negative (no borrow occurred), and cleared if the 
     // result is negative (borrow occurred).
-    cpu->status.flags.carry = result <= 0x80;
+    cpu->status.flags.carry = realResult >= 0;
     cpu->status.flags.overflow = ((cpu->acc ^ result) && ((0xff-data) ^ result)) >= 0x80;
     // The sign is given by the most significant bit in 2's complement.
     cpu->status.flags.negative = result >= 0x80;

@@ -4,13 +4,15 @@
 ; Simple program with utilities to do basic word math. The result of the operations will be stored 
 ; at RESULT. 
 ; Operations are similar to u8 but for multiplication and division a 16 bit accumulator is needed. 
-; For that we got AUX.
+; For that we got AUX. 
+;   - Sum and sub operations can be used for unsigned and signed operations. 
+;   - Mult and div only work with absolute terms.
 ; **************************************************************************************************
 
-OP1_VAL_L = $FF
-OP1_VAL_H = $FF
-OP2_VAL_L = $FF
-OP2_VAL_H = $FF
+OP1_VAL_L = $5a
+OP1_VAL_H = $04
+OP2_VAL_L = $03
+OP2_VAL_H = $01
 
   .org $8000
 
@@ -80,13 +82,6 @@ set_vals:
 ; **************************************************************************************************
 ; MATH OPERATIONS
 ; **************************************************************************************************
-sum_u8:
-  CLC
-  LDA OP1
-  ADC OP2
-  STA RESULT
-  RTS
-
 sum_u16:
   CLC
   LDA OP1
@@ -95,13 +90,6 @@ sum_u16:
   LDA OP1+1
   ADC OP2+1
   STA RESULT+1
-  RTS
-
-sub_u8:
-  SEC
-  LDA OP1
-  SBC OP2
-  STA RESULT
   RTS
 
 sub_u16:
@@ -114,28 +102,12 @@ sub_u16:
   STA RESULT+1
   RTS
 
-mult_u8:
-  LDA #$80     ;Preload sentinel bit into RESULT
-  STA RESULT
-  ASL A        ;Initialize RESULT hi byte to 0
-	DEC OP1
-L1_u8:
-  LSR OP2      ;Get low bit of OP2
-  BCC L2_u8    ;0 or 1?
-  ADC OP1      ;If 1, add (OP1-1)+1
-L2_u8:     
-  ROR A        ;"Stairstep" shift (catching carry from add)
-  ROR RESULT
-  BCC L1_u8    ;When sentinel falls off into carry, we're done
-  STA RESULT+1
-  RTS
-
 mult_u16:
-  LDA #$80     ;Preload sentinel bit
+  LDA #$80      ; Preload sentinel bit. It will travel 16 positions until it gets in the C and done!
   STA RESULT+1
   LDA OP1
   BNE L0_u16
-  DEC OP1+1 
+  DEC OP1+1     ; Subtract 1 from OP1 so that non CLC has to be used on the ADC call (nifty).
 L0_u16:
 	DEC OP1
 
@@ -148,9 +120,9 @@ L1_u16:
   STA AUX          
   LDA AUX+1
   ADC OP1+1
-  STA AUX+1
-L2_u16:     
-  ROR AUX+1    ; "Stairstep" shift (catching carry from add)
+L2_u16:    
+  ROR A       ; Pass the carry from the previous ADC to the sumand.
+  STA AUX+1   ; Save the MSB of the sumand.
   ROR AUX
   ROR RESULT+1
   ROR RESULT
@@ -160,23 +132,6 @@ L2_u16:
   STA RESULT+3
   LDA AUX
   STA RESULT+2
-  RTS
-
-div_u8:
-  LDX #8
-test_div_u8:
-  ASL RESULT    ; Move the result to the left and INC if remainder >= OP2.
-  ASL OP1
-  ROL RESULT+1  ; Charge a bit into the remainder.
-  LDA RESULT+1  ; Try to subtract the divisor to the remainder.
-  SEC
-  SBC OP2
-  BMI next_div_u8  ; If negative, go to the next bit.
-  STA RESULT+1  ; If positive, store the result of the subtraction in the remainder.
-  INC RESULT    ; Put a one on the LSB of the result.
-next_div_u8:
-  DEX
-  BNE test_div_u8
   RTS
 
 div_u16:
@@ -193,12 +148,15 @@ test_div_u16:
   LDA RESULT+2  ; Try to subtract the divisor to the remainder.
   SEC
   SBC OP2
-  TAY           ; Y CONTAINS THE LSB OF THE SUBTRACT.
+  TAY           ; SAVE THE LSB OF THE RESULT IN Y
   LDA RESULT+3
   SBC OP2+1
-  ; STA AUX+1
 
-  BMI next_div_u16  ; If negative, go to the next bit.
+  ; NOW CHECK IF THE NUMBER IN AUX IS POSITIVE OR ZERO.
+  ; AN ABSOLUTE NEGATIVE RESULT IN SBC WILL ALWAYS OUTPUT C=0
+  BCC next_div_u16
+
+  ; if reached here, subtraction was either zero or positive.
   STA RESULT+3  ; If positive, store the result of the subtraction in the remainder.
   TYA
   STA RESULT+2
@@ -209,10 +167,12 @@ next_div_u16:
   BNE test_div_u16
   RTS
 
-mod_u8:
-  JSR div_u8    ; Move the remainder to the result field.
-  LDA RESULT+1
+mod_u16:
+  JSR div_u16    ; Move the remainder to the result field.
+  LDA RESULT+2
   STA RESULT
+  LDA RESULT+3
+  STA RESULT+1
   RTS
 
   .org $fffc

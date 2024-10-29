@@ -3,10 +3,12 @@
 ; 
 ; Simple program with utilities to do basic byte math. The result of the operations will be stored 
 ; at RESULT.
+;   - Sum and sub operations can be used for unsigned and signed operations. 
+;   - Mult and div only work with absolute terms.
 ; **************************************************************************************************
 
 OP1_VAL = 255
-OP2_VAL = 2
+OP2_VAL = 253
 
   .org $8000
 
@@ -74,7 +76,8 @@ test_div:
   LDA RESULT+1  ; Try to subtract the divisor to the remainder.
   SEC
   SBC OP2
-  BMI next_div  ; If negative, go to the next bit.
+  BCC next_div    ; If negative (after subtraction, if carry is 0, result is negative in absolute terms), go to the next bit.
+add_rem_div:    ; if reached here, subtraction was either zero or positive.
   STA RESULT+1  ; If positive, store the result of the subtraction in the remainder.
   INC RESULT    ; Put a one on the LSB of the result.
 next_div:
