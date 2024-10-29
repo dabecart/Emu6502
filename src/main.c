@@ -9,6 +9,8 @@
 #include "rom.h"
 #include "ram.h"
 
+#define NESTING_PRINT_INDEX 0
+
 Peripheral rom = {
     .baseDir = 0x8000,
     .sizeDir = 0x10000,
@@ -43,6 +45,7 @@ int main(int argc, char **argv) {
 
     // Initialize CPU.
     initCPU(&cpu);
+    cpu.nestingPrintIndex = NESTING_PRINT_INDEX;
 
     // Catch signals to exit the loop securely.
     signal(SIGINT, handleSIGINT);

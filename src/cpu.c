@@ -271,18 +271,24 @@ void initCPU(CPU* cpu) {
     cpu->y = 0;
     cpu->stack = 0;
     cpu->status.val = 0b00100000;
+
+    cpu->nestingIndex = 0;
     cpu->haltProgram = 0;
+
+    // Prints all nested functions.
+    cpu->nestingPrintIndex = 256;
 
     // Get the RESB vector (the initial memory position of the program).
     interactWithPeripheral(cpu, 0xFFFC, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
     interactWithPeripheral(cpu, 0xFFFD, 0, READ_PERIPH, ((uint8_t*) (&cpu->pc)) + 1);
 
-    printf("CPU starting from 0x%04x\n", cpu->pc);
-
     cpu->clockCount = 0;
 }
 
 void routineCPU(CPU* cpu) {
+    // Save a copy of the entry PC.
+    cpu->previousPC = cpu->pc;
+
     // Get the OP code.
     uint8_t opCode;
     interactWithPeripheral(cpu, cpu->pc, 0, READ_PERIPH, &opCode);
@@ -389,9 +395,15 @@ void routineCPU(CPU* cpu) {
 }
 
 void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, uint16_t dir, uint8_t data) {
+    static int previousNestingIndex = 0;
+    if(cpu->nestingIndex > cpu->nestingPrintIndex && previousNestingIndex==cpu->nestingIndex)
+        return;
+    
+    previousNestingIndex = cpu->nestingIndex;
+
     printf("\033[1F");  // Go up a line.
     
-    printf("0x%04x: %02x  ", cpu->pc, instruction->opCode);
+    printf("0x%04x: %02x  ", cpu->previousPC, instruction->opCode);
     for(int i = 1; i < 3; i++) {
         if((i+1) <= instruction->byteLength){
             printf("%02x  ", *(rawArgs+i-1));
@@ -464,7 +476,7 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
         break;
     }
 
-    printf("   %02x  %02x  %02x  0x01%02x   %d %d 1 %d %d %d %d %d   %*s", 
+    printf("   %02x  %02x  %02x  0x01%02x   %d %d 1 %d %d %d %d %d   %*s   %-6Ld", 
            cpu->acc, cpu->x, cpu->y, cpu->stack,
            cpu->status.flags.negative,
            cpu->status.flags.overflow,
@@ -473,13 +485,14 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
            cpu->status.flags.irqDisable,
            cpu->status.flags.zero,
            cpu->status.flags.carry,
-           CPU_COMMENT_LENGTH, cpu->funcComment);
+           CPU_COMMENT_LENGTH, cpu->funcComment,
+           cpu->clockCount);
     
     // Reset comment string.
     cpu->funcComment[0] = 0;
 
     printf("\n\33[38;5;0;48;5;255m"); // Invert color scheme.
-    printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK    N V 1 B D I Z C   FUNCTION COMMENT               ");
+    printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK    N V 1 B D I Z C   FUNCTION COMMENT                   CLK   ");
     printf("\33[m\n");   // Clear style, go up a line.
 }
 
@@ -490,8 +503,8 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
 
 // Add Memory to Accumulator with Carry
 void ADC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-    int16_t realResult;
-    int8_t result;
+    uint16_t realResult;
+    uint8_t result;
 
     if(cpu->status.flags.decimalMode) {
         printf("Decimal mode in ADC not supported!");
@@ -499,25 +512,17 @@ void ADC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
         return;
     }else {
         // The mathematical result.
-        realResult = (int8_t)(cpu->acc) + (int8_t)(data) + cpu->status.flags.carry;
+        realResult = (uint16_t)(cpu->acc) + (uint16_t)(data) + cpu->status.flags.carry;
         // The trimmed result with sign.
-        result = realResult & 0xFF;
+        result = realResult;
     }
 
-    // A carry occurs when the accumulator (without sign) is bigger than the result value (without
-    // sign too). Think about adding two positive numbers: the result must always be greater than 
-    // the operands. If adding them result in a smaller number, that means that there's a digit to 
-    // the left of the result that has been "deleted" after masking; that is, the carry. 
-    cpu->status.flags.carry = cpu->acc > ((uint8_t)result);
-    // Gets rid of the sign but keeps the sign.
-    cpu->acc = result;  
-    // An overflow occurs when the sign of the real mathematical operation differs from the final
-    // result.
-    cpu->status.flags.overflow = (result > 0) ^ (realResult > 0);
-
+    cpu->status.flags.carry = realResult >= 0x0100;
+    cpu->status.flags.overflow = ((cpu->acc ^ result) && (data ^ result)) >= 0x80;
     // The sign is given by the most significant bit in 2's complement.
-    cpu->status.flags.negative = cpu->acc >= 0x80;
-    cpu->status.flags.zero = cpu->acc == 0;
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.zero = result == 0;
+    cpu->acc = result;  
 }
 
 // AND Memory with Accumulator
@@ -766,6 +771,8 @@ void JSR_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
     interactWithPeripheral(cpu, 0x0100 | cpu->stack--, newStackedPC, WRITE_PERIPH, NULL);
     cpu->pc = dir - instruction->byteLength;
 
+    cpu->nestingIndex++;
+
     sprintf(cpu->funcComment, "Jump to subroutine at 0x%04x", dir);
 }
 
@@ -895,6 +902,8 @@ void RTS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
     interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, (uint8_t*) &cpu->pc);
     interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, ((uint8_t*) &cpu->pc) + 1);
 
+    cpu->nestingIndex--;
+
     // The loaded PC has 1 less than the real memory direction. This increment will be done in the 
     // routineCPU as this function is 1 byte long.
     sprintf(cpu->funcComment, "Returning to 0x%04x", cpu->pc + 1);
@@ -902,8 +911,8 @@ void RTS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 
 // Subtract Memory from Accumulator with Borrow
 void SBC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-    int16_t realResult;
-    int8_t result;
+    uint16_t realResult;
+    uint8_t result;
 
     if(cpu->status.flags.decimalMode) {
         printf("Decimal mode in SBC not supported!");
@@ -911,26 +920,19 @@ void SBC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
         return;
     }else {
         // The mathematical result.
-        realResult = (int8_t)(cpu->acc) - (int8_t)(data) - (!cpu->status.flags.carry);
+        realResult = (uint16_t)(cpu->acc) - (uint16_t)(data) - (!cpu->status.flags.carry);
         // The trimmed result with sign.
         result = realResult & 0xFF;
     }
 
-    // A carry occurs when the accumulator (without sign) is smaller than the result value (without
-    // sign too). Think about subtracting two positive numbers: the result must always be smaller 
-    // than the first operand. If subtracting them result in a bigger number, that means that 
-    // there's a digit to the left of the result that has been "deleted" after masking; that is, 
-    // the carry. 
-    cpu->status.flags.carry = cpu->acc < ((uint8_t)result);
-    // Gets rid of the sign but keeps the sign.
-    cpu->acc = result;  
-    // An overflow occurs when the sign of the real mathematical operation differs from the final
-    // result.
-    cpu->status.flags.overflow = (result > 0) ^ (realResult > 0);
-
+    // The carry bit is set if the result is non-negative (no borrow occurred), and cleared if the 
+    // result is negative (borrow occurred).
+    cpu->status.flags.carry = result <= 0x80;
+    cpu->status.flags.overflow = ((cpu->acc ^ result) && ((0xff-data) ^ result)) >= 0x80;
     // The sign is given by the most significant bit in 2's complement.
-    cpu->status.flags.negative = cpu->acc >= 0x80;
-    cpu->status.flags.zero = cpu->acc == 0;
+    cpu->status.flags.negative = result >= 0x80;
+    cpu->status.flags.zero = result == 0;
+    cpu->acc = result;  
 }
 
 // Set Carry Flag

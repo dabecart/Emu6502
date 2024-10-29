@@ -67,7 +67,6 @@ L2:
 
 div_u8:
   LDX #8
-  CLC
 test_div:
   ASL RESULT    ; Move the result to the left and INC if remainder >= OP2.
   ASL OP1

@@ -35,8 +35,13 @@ typedef struct CPU {
 
     // Statistics.
     unsigned long long clockCount;
+    int nestingIndex;
+    uint16_t previousPC;
 
-    // Flags. 
+    // Flags.
+    // Disables printing when nesting index is greater than this value.
+    int nestingPrintIndex; 
+    // When set to 1, the CPU is being halted.
     uint8_t haltProgram;
 
     // Function comments.
