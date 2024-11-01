@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "peripheral.h"
+#include "sim.h"
 
 #define CPU_COMMENT_LENGTH 32
 
@@ -46,6 +47,9 @@ typedef struct CPU {
 
     // Function comments.
     char funcComment[CPU_COMMENT_LENGTH];
+#if STORE_RUN_ON_FILE
+    FILE* outputFile;
+#endif
 } CPU;
 
 typedef enum CPUAddressing {

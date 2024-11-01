@@ -8,8 +8,7 @@
 #include "cpu.h"
 #include "rom.h"
 #include "ram.h"
-
-#define NESTING_PRINT_INDEX 0
+#include "sim.h"
 
 Peripheral rom = {
     .baseDir = 0x8000,
@@ -20,6 +19,10 @@ Peripheral ram = {
     .sizeDir = 0x8000,
 };
 CPU cpu;
+
+#if STORE_RUN_ON_FILE
+    FILE* outputFile;    
+#endif
 
 char* romFile;
 int fetchArguments(int argc, char **argv);
@@ -47,6 +50,11 @@ int main(int argc, char **argv) {
     initCPU(&cpu);
     cpu.nestingPrintIndex = NESTING_PRINT_INDEX;
 
+#if STORE_RUN_ON_FILE
+    outputFile = fopen("run.out", "w");
+    cpu.outputFile = outputFile;
+#endif
+
     // Catch signals to exit the loop securely.
     signal(SIGINT, handleSIGINT);
 
@@ -62,6 +70,10 @@ int main(int argc, char **argv) {
     }
 
     freePeripherals();
+
+#if STORE_RUN_ON_FILE
+    fclose(outputFile);
+#endif
 
     return 0;
 }
