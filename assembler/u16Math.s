@@ -14,7 +14,7 @@ OP1_VAL_H = $04
 OP2_VAL_L = $03
 OP2_VAL_H = $01
 
-  .org $8000
+    .org $C000
 
 OP1 = 0
 OP2 = 2

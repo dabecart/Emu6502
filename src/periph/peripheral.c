@@ -5,12 +5,12 @@ int peripheralCount = 0;
 
 void addPeripheral(Peripheral* newPeripheral) {
     if(newPeripheral == NULL) {
-        printf("The new peripheral is NULL\n");
+        printError("The new peripheral is NULL\n");
         exit(-1);
     }
 
     if(peripheralCount == PERIPHERAL_MAX_COUNT) {
-        printf("Maximum number of peripherals reached.\n");
+        printError("Maximum number of peripherals reached.\n");
         exit(-1);
     }
 
@@ -27,14 +27,23 @@ void freePeripherals() {
 
 void interactWithPeripheral(
     void* cpu, uint16_t direction, uint8_t data, PeripheralInteraction rw, uint8_t* out) {
+
     Peripheral* per;
     for(int i = 0; i < peripheralCount; i++){
         per = peripheralList[i];
-        if(direction >= per->baseDir && direction < per->sizeDir){
-            per->process(cpu, per, direction, data, rw, out);
+        if(direction >= per->baseAddr && direction < (per->baseAddr+per->addressLen)){
+            per->interact(cpu, per, direction, data, rw, out);
             return;
         }
     }
 
-    printf("No peripheral found at direction 0x%x\n", direction);
+    printWarning("No peripheral found at direction 0x%x\n", direction);
+}
+
+void updatePeripherals(void* cpu) {
+    Peripheral* per;
+    for(int i = 0; i < peripheralCount; i++){
+        per = peripheralList[i];
+        if(per->update != NULL) per->update(cpu, per);
+    }
 }

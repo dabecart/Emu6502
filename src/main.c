@@ -5,24 +5,31 @@
     #include <unistd.h>
 #endif
 
+#include "sim.h"
 #include "cpu.h"
 #include "rom.h"
 #include "ram.h"
-
-#define NESTING_PRINT_INDEX 0
+#include "acia.h"
 
 Peripheral rom = {
-    .baseDir = 0x8000,
-    .sizeDir = 0x10000,
+    .baseAddr = 0xC000,
+    .addressLen = 16*1024,
 };
 Peripheral ram = {
-    .baseDir = 0x0000,
-    .sizeDir = 0x8000,
+    .baseAddr = 0x0000,
+    .addressLen = 16*1024,
+};
+Peripheral acia1 = {
+    .baseAddr = 0xA000,
+    .addressLen = 4,
 };
 CPU cpu;
 
-char* romFile;
-int fetchArguments(int argc, char **argv);
+char* romFile = NULL;
+char* outputFile = NULL;
+char* serialRoute = NULL;
+void printHelp();
+void fetchArguments(int argc, char **argv);
 
 volatile int continueLoop = 1;
 void handleSIGINT(int sig) {
@@ -31,28 +38,36 @@ void handleSIGINT(int sig) {
 
 int main(int argc, char **argv) {
 
-    if(!fetchArguments(argc, argv)) {
-        exit(-1);
-    }
+    fetchArguments(argc, argv);
 
     // Initialize peripherals.
     initializeROM(&rom, romFile);
     initializeRAM(&ram);
+    initializeACIA(&acia1);
+    setSerialACIA(&acia1, serialRoute);
 
     // Add peripherals to the peripherals list.
     addPeripheral(&rom);
     addPeripheral(&ram);
+    addPeripheral(&acia1);
 
     // Initialize CPU.
     initCPU(&cpu);
-    cpu.nestingPrintIndex = NESTING_PRINT_INDEX;
+    setNestingPrintIndexCPU(&cpu, NESTING_PRINT_INDEX);
+    FILE* fout = setOutputFileCPU(&cpu, outputFile);
+    setOutputFileSimulator(fout);
 
     // Catch signals to exit the loop securely.
     signal(SIGINT, handleSIGINT);
 
+    // Prints a new line that will be cut by the printInstruction function inside routineCPU.
+    printf("\n");
+
     // Simulate clock edge.
     while(continueLoop && !cpu.haltProgram) {
         routineCPU(&cpu);
+
+        updatePeripherals(&cpu);
 
         // #ifdef _WIN32
         //     Sleep(1000);
@@ -62,16 +77,52 @@ int main(int argc, char **argv) {
     }
 
     freePeripherals();
+    freeCPU(&cpu);
 
     return 0;
 }
 
-int fetchArguments(int argc, char **argv) {
-    if(argc != 2) {
-        printf("Expected 1 argument to this function.\n");
-        return 0;
+void printHelp() {
+    printf("emu6502, by @dabecart. 2024.\n");
+    printf("Usage:   emu6502 -h <-o file> <-s serial> romFile\n");
+    printf("Arguments:\n");
+    printf("      romFile       Binary file with the content of ROM.\n");
+
+    printf("Optional arguments:\n");
+    printf("      -h            Prints this help menu.\n");
+    printf("      -o file       Stores the runtime output of the simulation to file.\n");
+    printf("      -s serial     Specifies the \"serial port\" to communicate via console with the simulator.\n");
+}
+
+void fetchArguments(int argc, char **argv) {
+    char* arg;
+    int argIndex;
+    for(argIndex = 1; argIndex < argc; argIndex++) {
+        arg = argv[argIndex];
+        if(arg[0] == '-') {
+            if(arg[1] == 'h') {
+                printHelp();
+                exit(0);
+            }else if(arg[1] == 'o') {
+                if((++argIndex) < argc) {
+                    outputFile = argv[argIndex];
+                }else {
+                    printError("Missing output (-o) file argument. Use -h to list usages.\n");
+                    exit(-1);
+                }
+            }else if(arg[1] == 's') {
+                if((++argIndex) < argc) {
+                    serialRoute = argv[argIndex];
+                }else {
+                    printError("Missing serial (-s) port. Use -h to list usages.\n");
+                    exit(-1);
+                }
+            }
+        }else{
+            break;
+        }
     }
 
-    romFile = argv[1];
-    return 1;
+    // Last argument will be the romFile.
+    romFile = argv[argIndex];
 }

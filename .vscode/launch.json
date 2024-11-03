@@ -31,7 +31,7 @@
             "request": "launch",
             "preLaunchTask": "Make project",
             "program": "${workspaceFolder}/build/emu6502",
-            "args": ["a.out"],
+            "args": ["-s","/dev/pts/8","a.out"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

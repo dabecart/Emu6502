@@ -2,12 +2,12 @@
 
 void initializeROM(Peripheral* periph, const char* romFile) {
     if(periph == NULL){
-        printf("Pass a valid pointer to a ROM to initialize it.\n");
+        printError("Pass a valid pointer to a ROM to initialize it.\n");
         exit(-1);
     }
 
     if(romFile == NULL){
-        printf("ROM file route is NULL.\n");
+        printError("ROM file route is NULL.\n");
         exit(-1);
     }
 
@@ -23,34 +23,34 @@ void initializeROM(Peripheral* periph, const char* romFile) {
     fseek(file, 0, SEEK_END);
     rom->romFileSize = ftell(file);
 
-    int directionRange = periph->sizeDir - periph->baseDir;
-    if(directionRange > rom->romFileSize) {
-        printf("The input file size (%ld) is smaller than the size of the simulated ROM (%d). The "
-        "requested content from the CPU that is out of bounds will be outputted as 0xFF.\n",
-        rom->romFileSize, directionRange);
+    if(periph->addressLen > rom->romFileSize) {
+        printError("The input file size (%ld) is smaller than the size of the simulated ROM (%d). "
+        "The requested content from the CPU that is out of bounds will be outputted as 0xFF.\n",
+        rom->romFileSize, periph->addressLen);
     }
 
     // Pass the values and functions to the peripheral struct.
     periph->data = rom;
-    periph->process = processROM;
+    periph->interact = interactROM;
     periph->free = freeROM;
 }
 
-void processROM(
+void interactROM(
     void* pcpu, Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out) {
     if(periph == NULL) return;
 
     if(!rw){
-        printf("Something is trying to WRITE to ROM at dir 0x%x with data 0x%x", dir, data);
+        printWarning("Something is trying to WRITE to ROM at dir 0x%x with data 0x%x", dir, data);
         return;
     }
 
     PeripheralROM* rom = (PeripheralROM*) periph->data;
 
-    int readDirection = dir - periph->baseDir;
+    int readDirection = dir - periph->baseAddr;
     if(readDirection >= rom->romFileSize){
         // Reading out of bounds, returning 0xFF.
         *out = 0xFF;
+        printWarning("ROM: Reading out of bounds of binary file, at dir 0x%x", dir);
         return;
     }
 

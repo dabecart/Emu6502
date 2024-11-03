@@ -2,6 +2,8 @@
     "makefile.configureOnOpen": false,
     "files.associations": {
         "ram.h": "c",
-        "peripheral.h": "c"
+        "peripheral.h": "c",
+        "stdint.h": "c",
+        "cpu.h": "c"
     }
 }

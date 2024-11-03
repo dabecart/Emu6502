@@ -261,19 +261,20 @@ const CPUInstruction instructions[] = {
 
 void initCPU(CPU* cpu) {
     if(cpu == NULL){
-        printf("Pass a valid pointer to a CPU to initialize it.\n");
+        printError("Pass a valid pointer to a CPU to initialize it.\n");
         exit(-1);
     }
 
     // Initialize registers.
     cpu->acc = 0;
     cpu->x = 0;
-    cpu->y = 0;
     cpu->stack = 0;
     cpu->status.val = 0b00100000;
+    cpu->y = 0;
 
     cpu->nestingIndex = 0;
     cpu->haltProgram = 0;
+    cpu->outputFile = NULL;
 
     // Prints all nested functions.
     cpu->nestingPrintIndex = 256;
@@ -295,7 +296,7 @@ void routineCPU(CPU* cpu) {
     
     CPUInstruction instruction = instructions[opCode];
     if(instruction.addressing == INVALID_ADDRS){
-        printf("Invalid instruction found at PC: 0x%04x (opcode: 0x%02x).\n", cpu->pc, opCode);
+        printError("Invalid instruction found at PC: 0x%04x (opcode: 0x%02x).\n", cpu->pc, opCode);
         exit(-1);
     }
 
@@ -379,14 +380,16 @@ void routineCPU(CPU* cpu) {
         break;
 
         default:
-            printf("Undefined addressing at PC 0x%04x", cpu->pc);
+            printError("Undefined addressing at PC 0x%04x", cpu->pc);
             exit(-1);
     }
 
     // Once the instruction and its arguments are parsed, call the operation.
     instruction.callback(cpu, &instruction, opDirection, opData);
 
+#if NESTING_PRINT_INDEX > 0
     printInstruction(cpu, &instruction, rawArgsBuffer, opDirection, opData);
+#endif
 
     // Increment the cycle counter.
     cpu->clockCount += instruction.clockCycles;
@@ -396,87 +399,96 @@ void routineCPU(CPU* cpu) {
 
 void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, uint16_t dir, uint8_t data) {
     static int previousNestingIndex = 0;
-    if(cpu->nestingIndex > cpu->nestingPrintIndex && previousNestingIndex==cpu->nestingIndex)
+    static char outputLine[256];
+    int outputLen = 0;
+
+    // Do not print if the nesting index is greater or equal than the print index, but print it if 
+    // the previous index was less than the print index.
+    if(cpu->nestingIndex >= cpu->nestingPrintIndex &&
+       (previousNestingIndex >= cpu->nestingPrintIndex))
         return;
     
     previousNestingIndex = cpu->nestingIndex;
 
     printf("\033[1F");  // Go up a line.
     
-    printf("0x%04x: %02x  ", cpu->previousPC, instruction->opCode);
+    outputLen += sprintf(outputLine, "0x%04x: %02x  ", cpu->previousPC, instruction->opCode);
     for(int i = 1; i < 3; i++) {
         if((i+1) <= instruction->byteLength){
-            printf("%02x  ", *(rawArgs+i-1));
+            outputLen += sprintf(outputLine+outputLen, "%02x  ", *(rawArgs+i-1));
         }else{
-            printf("    ");
+            outputLen += sprintf(outputLine+outputLen, "    ");
         }
     }
 
     char mnemonic[4] = {instruction->mnemonic[0], instruction->mnemonic[1], instruction->mnemonic[2], 0};
-    printf("-  %s ", mnemonic);
+    outputLen += sprintf(outputLine+outputLen, "-  %s ", mnemonic);
     
     uint16_t rawArg_u16 = rawArgs[0] | (rawArgs[1] << 8);
     switch(instruction->addressing) {
         case ABS_ADDRS:
-            printf("$%04x             ", rawArg_u16);
+            outputLen += sprintf(outputLine+outputLen, "$%04x             ", rawArg_u16);
         break;
 
         case ABS_INDEXED_INDIRECT_ADDRS:
-            printf("($%04x,x) -> $%04x", rawArg_u16, dir);
+            outputLen += sprintf(outputLine+outputLen, "($%04x,x) -> $%04x", rawArg_u16, dir);
         break;
 
         case ABS_INDEXED_X_ADDRS:
-            printf("$%04x,x   -> $%04x", rawArg_u16, dir);
+            outputLen += sprintf(outputLine+outputLen, "$%04x,x   -> $%04x", rawArg_u16, dir);
         break;
 
         case ABS_INDEXED_Y_ADDRS:
-            printf("$%04x,y   -> $%04x", rawArg_u16, dir);
+            outputLen += sprintf(outputLine+outputLen, "$%04x,y   -> $%04x", rawArg_u16, dir);
         break;
 
         case ABS_INDIRECT_ADDRS:
-            printf("($%04x)   -> $%04x", rawArg_u16, dir);
+            outputLen += sprintf(outputLine+outputLen, "($%04x)   -> $%04x", rawArg_u16, dir);
         break;
 
         case ACCUMULATOR_ADDRS:
-            printf("A                 ");
-        break;
-
-        case IMMEDIATE_ADDRS:
-            printf("#$%02x              ", dir);
+            outputLen += sprintf(outputLine+outputLen, "A                 ");
         break;
 
         case IMPLIED_ADDRS:
         case STACK_ADDRS:
-            printf("                  ");
+            outputLen += sprintf(outputLine+outputLen, "                  ");
+        break;
+
+        case IMMEDIATE_ADDRS:
+            outputLen += sprintf(outputLine+outputLen, "#$%02x              ", dir);
         break;
 
         case PROGRAM_COUNTER_ADDRS:
+            outputLen += sprintf(outputLine+outputLen, "#$%02x              ", rawArgs[0]);
+        break;
+
         case ZP_ADDRS:
-            printf("$%02x               ", rawArgs[0]);
+            outputLen += sprintf(outputLine+outputLen, "$%02x               ", rawArgs[0]);
         break;
 
         case ZP_INDEXED_INDIRECT_ADDRS:
-            printf("($%02x,x)   -> $%04x", rawArgs[0], dir);
+            outputLen += sprintf(outputLine+outputLen, "($%02x,x)   -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDEXED_X_ADDRS:
-            printf("$%02x,x     -> $%04x", rawArgs[0], dir);
+            outputLen += sprintf(outputLine+outputLen, "$%02x,x     -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDEXED_Y_ADDRS:
-            printf("$%02x,y     -> $%04x", rawArgs[0], dir);
+            outputLen += sprintf(outputLine+outputLen, "$%02x,y     -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDIRECT_ADDRS:
-            printf("($%02x)     -> $%04x", rawArgs[0], dir);
+            outputLen += sprintf(outputLine+outputLen, "($%02x)     -> $%04x", rawArgs[0], dir);
         break;
 
         case ZP_INDIRECT_INDEXED_Y_ADDRS:
-            printf("($%02x),y   -> $%04x", rawArgs[0], dir);
+            outputLen += sprintf(outputLine+outputLen, "($%02x),y   -> $%04x", rawArgs[0], dir);
         break;
     }
 
-    printf("   %02x  %02x  %02x  0x01%02x   %d %d 1 %d %d %d %d %d   %*s   %-6Ld", 
+    outputLen += sprintf(outputLine+outputLen, "   %02x  %02x  %02x  1%02x   %d %d 1 %d %d %d %d %d   %*s   %-6Ld\n",
            cpu->acc, cpu->x, cpu->y, cpu->stack,
            cpu->status.flags.negative,
            cpu->status.flags.overflow,
@@ -491,9 +503,29 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
     // Reset comment string.
     cpu->funcComment[0] = 0;
 
-    printf("\n\33[38;5;0;48;5;255m"); // Invert color scheme.
-    printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK    N V 1 B D I Z C   FUNCTION COMMENT                   CLK   ");
+    printMessage(outputLine, cpu->outputFile);
+
+    printf("\33[38;5;0;48;5;255m"); // Invert color scheme.
+    printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK N V 1 B D I Z C   FUNCTION COMMENT                   CLK   ");
     printf("\33[m\n");   // Clear style, go up a line.
+}
+
+void setNestingPrintIndexCPU(CPU* cpu, int printIndex) {
+    if(cpu == NULL || printIndex < 0) return;
+    cpu->nestingPrintIndex = NESTING_PRINT_INDEX;
+}
+
+FILE* setOutputFileCPU(CPU* cpu, char* outputFile) {
+    if(cpu == NULL || outputFile == NULL) return NULL;
+    cpu->outputFile = fopen(outputFile, "w");
+    return cpu->outputFile;
+}
+
+void freeCPU(CPU* cpu) {
+    if(cpu == NULL) return;
+    if(cpu->outputFile != NULL) {
+        fclose(cpu->outputFile);
+    }
 }
 
 
@@ -507,7 +539,7 @@ void ADC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
     uint8_t result;
 
     if(cpu->status.flags.decimalMode) {
-        printf("Decimal mode in ADC not supported!");
+        printError("Decimal mode in ADC not supported!");
         cpu->haltProgram = 1;
         return;
     }else {
@@ -831,21 +863,36 @@ void ORA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 
 // Push Accumulator on Stack
 void PHA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0) {
+        printWarning("Stack overflow!\n");
+    }
     interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->acc, WRITE_PERIPH, NULL);
 }
 
 // Push Processor Status on Stack
 void PHP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0) {
+        printWarning("Stack overflow!\n");
+    }
     interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->status.val, WRITE_PERIPH, NULL);
 }
 
 // Pull Accumulator from Stack
 void PLA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0xFF) {
+        printWarning("Stack rolled back to 0!\n");
+    }
     interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, &cpu->acc);
+
+    cpu->status.flags.negative = cpu->acc >= 0x80;
+    cpu->status.flags.zero = cpu->acc == 0;
 }
 
 // Pull Processor Status from Stack
 void PLP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0xFF) {
+        printWarning("Stack rolled back to 0!\n");
+    }
     interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, &cpu->status.val);
 }
 

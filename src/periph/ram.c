@@ -3,26 +3,25 @@
 
 void initializeRAM(Peripheral* periph) {
     if(periph == NULL){
-        printf("Pass a valid pointer to a RAM to initialize it.\n");
+        printError("Pass a valid pointer to a RAM to initialize it.\n");
         exit(-1);
     }
 
     PeripheralRAM* ram = (PeripheralRAM*) malloc(sizeof(PeripheralRAM));
-    ram->size = periph->sizeDir - periph->baseDir;
-    ram->memory = (uint8_t*) malloc(ram->size);
+    ram->memory = (uint8_t*) malloc(periph->addressLen);
 
     // Pass the values and functions to the peripheral struct.
     periph->data = ram;
-    periph->process = processRAM;
+    periph->interact = interactRAM;
     periph->free = freeRAM;
 }
 
-void processRAM(void* pcpu, Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out) {
+void interactRAM(void* pcpu, Peripheral* periph, uint16_t dir, uint8_t data, uint8_t rw, uint8_t* out) {
     if(periph == NULL) return;
 
     PeripheralRAM* ram = (PeripheralRAM*) periph->data;
     CPU* cpu = (CPU*) pcpu;
-    int bufferDir = dir - periph->baseDir;
+    int bufferDir = dir - periph->baseAddr;
 
     if(rw) {    
         // CPU is reading from RAM.

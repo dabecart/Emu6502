@@ -9,14 +9,14 @@
 #define PERIPHERAL_MAX_COUNT 5
 
 typedef struct Peripheral {
-    int baseDir;  // Included in range.
-    int sizeDir;  // Not included in range.
+    int baseAddr;   // Parting point for the addressing.
+    int addressLen; // Number of bits that can be addressed.
 
     // Pointer to an struct holding the data for the specific peripheral. Cast it to the 
     // correspondent type to use it.
     void* data;
 
-    // The process function as arguments:
+    // Function called by the CPU to interact with the peripheral. Argumentss:
     // - CPU* cpu. Pointer to the CPU to which this peripheral is connected.
     // - Peripheral* periph. Pointer to the current peripheral.
     // - uint16_t direction. The value on the direction bus.
@@ -24,7 +24,13 @@ typedef struct Peripheral {
     // - uint8_t R/#W. On 1 is reading, on 0 is writing.
     // - uint8_t* output. If R/#W = 1, something should be outputted here. The pointer will always
     // be given by the called to this function, that is, this pointer cannot be NULL if reading.
-    void (*process)(void*, struct Peripheral*, uint16_t, uint8_t, uint8_t, uint8_t*);
+    void (*interact)(void*, struct Peripheral*, uint16_t, uint8_t, uint8_t, uint8_t*);
+
+    // Function that the peripheral runs independently of the CPU. Arguments:
+    // - CPU* cpu. Pointer to the CPU to which this peripheral is connected.
+    // - Peripheral* periph. Pointer to the current peripheral.
+    // This function is not mandatory.
+    void (*update)(void*, struct Peripheral*);
 
     // Cleanup function.
     void (*free)(struct Peripheral*);
@@ -51,7 +57,7 @@ void freePeripherals();
 
 /****************************************** FUNCTION ***********************************************
  \brief Reads or writes data to a peripheral.
- \param cpu. Pointer to the CPU controlling the bus to which all the peripherals are connected.s
+ \param cpu. Pointer to the CPU controlling the bus to which all the peripherals are connected.
  \param direction. Value of the direction buffer.
  \param data. Value of the data buffer.
  \param rw. If 0, the CPU is reading from the peripheral. If other than 1, it's writing to it.
@@ -61,5 +67,12 @@ void freePeripherals();
 ***************************************************************************************************/
 void interactWithPeripheral(void* cpu, uint16_t direction, uint8_t data, 
                             PeripheralInteraction rw, uint8_t* out);
+
+/****************************************** FUNCTION ***********************************************
+ \brief Runs the a function of the peripheral that is independent from the CPU (interrupts, serial). 
+ \param cpu. Pointer to the CPU.
+ \return None.
+***************************************************************************************************/
+void updatePeripherals(void* cpu);
 
 #endif // PERIPHERAL_h

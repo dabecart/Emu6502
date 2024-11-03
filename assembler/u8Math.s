@@ -10,7 +10,7 @@
 OP1_VAL = 255
 OP2_VAL = 253
 
-  .org $8000
+    .org $C000
 
 OP1 = 0
 OP2 = 1

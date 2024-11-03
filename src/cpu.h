@@ -4,9 +4,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "sim.h"
 #include "peripheral.h"
 
-#define CPU_COMMENT_LENGTH 32
+#define CPU_COMMENT_LENGTH  32
+#define CPU_CLK_SPEED       8000000 // Hz
 
 typedef struct CPUFlags {
     uint8_t carry       : 1;
@@ -46,6 +48,7 @@ typedef struct CPU {
 
     // Function comments.
     char funcComment[CPU_COMMENT_LENGTH];
+    FILE* outputFile;
 } CPU;
 
 typedef enum CPUAddressing {
@@ -83,6 +86,12 @@ void initCPU(CPU* cpu);
 void routineCPU(CPU* cpu);
 
 void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, uint16_t dir, uint8_t data);
+
+void setNestingPrintIndexCPU(CPU* cpu, int printIndex);
+
+FILE* setOutputFileCPU(CPU* cpu, char* outputFile);
+
+void freeCPU(CPU* cpu);
 
 /***************************************************************************************************
  * 6502 Instructions
