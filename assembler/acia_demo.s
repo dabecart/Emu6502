@@ -24,6 +24,7 @@ reset:
   lda #%00000010  ; No parity, no echo, no IRQ
   sta ACIA_CMD
 
+; Prints test_str
   ldx 0
 print:
   lda test_str,x
@@ -37,8 +38,17 @@ wait_for_clear:
   pla
   bne print
 
-  brk   ; End of program
+; Echoes everything from terminal until a \r character is introduced.
+wait_input:
+  lda ACIA_STATUS
+  and #$08
+  beq wait_input
+  lda ACIA_DATA
+  sta ACIA_DATA       ; Echo what's been read.
+  cmp #$D             ; Is \r?
+  bne wait_input
 
+  brk   ; End of program
 
   .org $fffc
   .word reset

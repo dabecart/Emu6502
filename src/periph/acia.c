@@ -294,15 +294,15 @@ void updateACIA(void* pcpu, Peripheral* periph) {
     acia->status.txEmpty = 1;
 #endif
 
-    // char tempRead;
-    // int rxByteCount = readFromSerialACIA_(acia, 1, &tempRead);
-    // if(rxByteCount == 1) {
-    //     acia->rxData = tempRead;
-    //     // Data has been overwritten.
-    //     if(acia->status.rxFull) acia->status.overrunError = 1;
+    char tempRead;
+    int rxByteCount = readFromSerialACIA_(acia, 1, &tempRead);
+    if(rxByteCount == 1) {
+        acia->rxData = tempRead;
+        // Data has been overwritten.
+        if(acia->status.rxFull) acia->status.overrunError = 1;
         
-    //     acia->status.rxFull = 1;
-    // }
+        acia->status.rxFull = 1;
+    }
 }
 
 void freeACIA(Peripheral* periph) {
@@ -495,8 +495,9 @@ int writeToSerialACIA_(PeripheralACIA *acia, const char* msg, int len) {
 
 int readFromSerialACIA_(PeripheralACIA *acia, int len, char* msg) {
     int readBytes = read(acia->serial, msg, len);
-    if (readBytes < 0) {
+    if (readBytes < -1) {   // -1 is the return after a non-blocking call returned nothing.
         perror("Error reading from ACIA serial port");
+        printf("\n");
     }
     return readBytes;
 }
