@@ -31,7 +31,7 @@
             "request": "launch",
             "preLaunchTask": "Make project",
             "program": "${workspaceFolder}/build/emu6502",
-            "args": ["-s","/dev/pts/8","a.out"],
+            "args": ["-s","$HOME/ttyEmu0","-o","run.out","a.out"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

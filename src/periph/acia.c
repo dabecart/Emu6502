@@ -8,7 +8,11 @@ void initializeACIA(Peripheral* periph) {
 
     PeripheralACIA* acia = (PeripheralACIA*) malloc(sizeof(PeripheralACIA));
     memset(acia, 0, sizeof(PeripheralACIA));    // Set initially all to zero.
+
     acia->serial = -1;
+    // Quick fix to disable first run errors.
+    acia->cpuClockOnRX = -999999999;
+    acia->cpuClockOnTX = -999999999;
 
     // Initial status after hardware reset of the ACIA.
     // All zero except...
@@ -36,16 +40,16 @@ void interactACIA(
             *out = acia->rxData;
             acia->status.rxFull = 0;    // The data has been read, RX buffer will be emptied out.
             acia->status.overrunError = 0;
-            sprintf(cpu->funcComment, "ACIA: read 0x%02x", *out);
+            sprintf(cpu->funcComment, "ACIA: read 0x%02x (%c)", *out, *out);
         }else {     
             // Writing: sends the TX buffer.
             if(!acia->status.txEmpty) {
 #if ACIA_SIMULATE_TX_WAIT
                 unsigned long cpuDeltaTX = cpu->clockCount - acia->cpuClockOnTX;
                 unsigned long serialDeltaTX = cpuDeltaTX * acia->baudrate / CPU_CLK_SPEED;
-                if(serialDeltaTX < acia->txLength) {
+                if(serialDeltaTX < acia->commsBitLength) {
                     // Not enough time has passed for the byte to be transmitted.
-                    int missingCycles = acia->txLength - serialDeltaTX + 1;
+                    int missingCycles = acia->commsBitLength - serialDeltaTX + 1;
                     printWarning("ACIA data that still has not been sent (0x%x), overwriten by "
                                     "0x%x Add %d cycle(s) more between instructions.\n", 
                                     acia->txData, data, missingCycles);
@@ -57,7 +61,7 @@ void interactACIA(
 #endif
             }
             acia->txData = data;
-            sprintf(cpu->funcComment, "ACIA: write 0x%02x", acia->txData);
+            sprintf(cpu->funcComment, "ACIA: write 0x%02x (%c)", acia->txData, acia->txData);
             // Send data on the updateACIA function.
             acia->txPending = 1;
         }
@@ -68,7 +72,13 @@ void interactACIA(
         if(rw) {
             // Reading: Outputs to the CPU the status register.
             memcpy(out, &acia->status, 1);
-            sprintf(cpu->funcComment, "ACIA: read status");
+
+            // Reading the status register clears the interrupt flag in the status.
+            acia->status.irq = 0;
+            // And clears the IRQ of the device.
+            periph->irqb = 1;
+
+            sprintf(cpu->funcComment, "ACIA: read status 0x%02x", *out);
         }else {
             // Writing: software reset of the ACIA (not all fields get reset to 0).
             acia->status.dataCarrierDetect = 0;
@@ -99,7 +109,7 @@ void interactACIA(
             }
 
             if(inReg.irqEnable != acia->command.irqEnable) {
-                commentIndex += sprintf(cpu->funcComment+commentIndex, " IRQ: ");
+                commentIndex += sprintf(cpu->funcComment+commentIndex, " IRQ:");
                 if(inReg.irqEnable) {
                     commentIndex += sprintf(cpu->funcComment+commentIndex, "OFF");
                 }else {
@@ -108,7 +118,7 @@ void interactACIA(
             }
 
             if(inReg.txControls != acia->command.txControls) {
-                commentIndex += sprintf(cpu->funcComment+commentIndex, " TX: ");
+                commentIndex += sprintf(cpu->funcComment+commentIndex, " TX:");
                 switch (inReg.txControls)
                 {
                 case ACIA_TXC_IRQoff_RTSBhigh: {
@@ -255,53 +265,94 @@ void interactACIA(
 }
 
 void updateACIA(void* pcpu, Peripheral* periph) {
-    if(periph == NULL) return;
+    if(pcpu == NULL || periph == NULL) return;
 
     CPU* cpu = (CPU*) pcpu;
     PeripheralACIA* acia = (PeripheralACIA*) periph->data;
 
-    if(acia->txPending) {
+    // ***************************************** TX ************************************************
 #if ACIA_SIMULATE_TX_WAIT
+    if(acia->txPending) {
         // CPU requested to send. Check if there's been enough time for the previous byte to be 
         // transmitted.
         unsigned long cpuDeltaTX = cpu->clockCount - acia->cpuClockOnTX;
         unsigned long serialDeltaTX = cpuDeltaTX * acia->baudrate / CPU_CLK_SPEED;
-        if(serialDeltaTX < acia->txLength) {
+        if(serialDeltaTX < acia->commsBitLength) {
             // Not enough time has passed for the byte to be transmitted.
-            int missingCycles = acia->txLength - serialDeltaTX + 1;
+            int missingCycles = acia->commsBitLength - serialDeltaTX + 1;
             printWarning("ACIA: Not enough time between bytes! Add %d cycle(s) more.\n", 
                 missingCycles);
         }
         acia->status.txEmpty = 0;
-#endif
+        acia->cpuClockOnTX = cpu->clockCount;
 
         writeToSerialACIA_(acia, &acia->txData, 1);
         acia->txPending = 0;
-        acia->cpuClockOnTX = cpu->clockCount;
     }
 
-#if ACIA_SIMULATE_TX_WAIT
     // Check if enough cycles have passed and the TX empty flag can be restored.
     if(!acia->status.txEmpty) {
         unsigned long cpuDeltaTX = cpu->clockCount - acia->cpuClockOnTX;
         unsigned long serialDeltaTX = cpuDeltaTX * acia->baudrate / CPU_CLK_SPEED;
-        if(serialDeltaTX >= acia->txLength) {
+        if(serialDeltaTX >= acia->commsBitLength) {
             // Enough time has passed for the byte to be transmitted.
             acia->status.txEmpty = 1;
+            if(acia->command.txControls == ACIA_TXC_IRQon_RTSBlow) {
+                // Trigger the TX completed IRQ.
+                acia->status.irq = 1;
+                // Trigger the IRQ of this device.
+                periph->irqb = 0;  
+            }
         }
     }
-#else 
-    acia->status.txEmpty = 1;
+#else
+    if(acia->txPending) {
+        // If no wait is done, the data is sent inmediately.
+        acia->status.txEmpty = 1;
+        // If TX interrupts are enabled...
+        if(acia->command.txControls == ACIA_TXC_IRQon_RTSBlow) {
+            // ... trigger the TX completed IRQ.
+            acia->status.irq = 1;
+            // Trigger the IRQ from this device.
+            periph->irqb = 0;
+        }
+        writeToSerialACIA_(acia, &acia->txData, 1);
+        acia->txPending = 0;
+    }
 #endif
 
-    char tempRead;
-    int rxByteCount = readFromSerialACIA_(acia, 1, &tempRead);
-    if(rxByteCount == 1) {
-        acia->rxData = tempRead;
-        // Data has been overwritten.
-        if(acia->status.rxFull) acia->status.overrunError = 1;
-        
-        acia->status.rxFull = 1;
+    // ***************************************** RX ************************************************
+    unsigned long cpuDeltaRX = cpu->clockCount - acia->cpuClockOnRX;
+#if ACIA_SIMULATE_RX_WAIT
+    unsigned long serialDeltaRX = cpuDeltaRX * acia->baudrate / CPU_CLK_SPEED;
+#else 
+    unsigned long serialDeltaRX = cpuDeltaRX * 115200 / CPU_CLK_SPEED;
+#endif
+
+    if(serialDeltaRX >= acia->commsBitLength) {
+        char tempRead;
+        int rxByteCount = readFromSerialACIA_(acia, 1, &tempRead);
+        if(rxByteCount == 1) {
+            printMessage("ACIA new input 0x%02x (%c)\n", tempRead, tempRead);
+
+            // Has data been overwritten?
+            if(acia->status.rxFull){
+                acia->status.overrunError = 1;
+                printWarning("ACIA: Overrun 0x%02x (%c) by 0x%02x (%c).\n",
+                    acia->rxData, acia->rxData, tempRead, tempRead);
+            }
+
+            acia->rxData = tempRead;
+            acia->cpuClockOnRX = cpu->clockCount;
+            acia->status.rxFull = 1;
+
+            if(!acia->command.irqEnable) {
+                // Set the IRQ status bit.
+                acia->status.irq = 1;
+                // Trigger the IRQ of this device.
+                periph->irqb = 0;
+            }
+        }
     }
 }
 
@@ -317,7 +368,7 @@ void freeACIA(Peripheral* periph) {
 }
 
 void setSerialACIA(Peripheral* periph, char* serialRoute) {
-    if(periph == NULL) return;
+    if(periph == NULL || serialRoute == NULL) return;
 
     PeripheralACIA* acia = (PeripheralACIA*) periph->data;
     acia->serial = open(serialRoute, O_RDWR | O_NOCTTY | O_SYNC | O_NONBLOCK);
@@ -337,6 +388,8 @@ void setSerialACIA(Peripheral* periph, char* serialRoute) {
         close(acia->serial);
         exit(-1);
     }
+
+    cfmakeraw(&tty);                                // Set raw mode. Disables line buffering.
     
     tty.c_iflag &= ~IGNBRK;                         // Disable break processing.
     tty.c_lflag = 0;                                // No signaling chars, no echo.
@@ -355,7 +408,7 @@ void setSerialACIA(Peripheral* periph, char* serialRoute) {
         exit(-1);
     }
 
-    const char *msg = "######## ACIA connected ########\n";
+    const char *msg = "######## ACIA connected ########\r\n";
     writeToSerialACIA_(acia, msg, strlen(msg));
 }
 
@@ -410,6 +463,8 @@ int intBaudrateToTermios_(int bauds) {
 }
 
 int setSerialConfigurationACIA_(PeripheralACIA *acia) {
+    if(acia->serial < 0) return 0;
+
     int stopBits, wordLength;
     int parity = acia->command.parity != ACIA_PARITY_OFF;       // Parity bit count.
     int baudrate = aciaBaudrateToInt_(acia->control.baudrate);
@@ -479,21 +534,29 @@ int setSerialConfigurationACIA_(PeripheralACIA *acia) {
     }
 
     // If reached here, the settings were correct. Modify the acia struct.
-    acia->txLength = 1 + wordLength + parity + stopBits;
+    acia->commsBitLength = 1 + wordLength + parity + stopBits;
     acia->baudrate = baudrate;
 
     return 0;
 }
 
 int writeToSerialACIA_(PeripheralACIA *acia, const char* msg, int len) {
+    // Serial port of ACIA has not been initialized.
+    if(acia->serial < 0) return 0;
+
     int writtenBytes = write(acia->serial, msg, len);
     if (writtenBytes < 0) {
         perror("Error writing to ACIA serial port");
     }
+    // Don't continue until the message is fully sent.
+    tcdrain(acia->serial);
     return writtenBytes;
 }
 
 int readFromSerialACIA_(PeripheralACIA *acia, int len, char* msg) {
+    // Serial port of ACIA has not been initialized.
+    if(acia->serial < 0) return 0;
+
     int readBytes = read(acia->serial, msg, len);
     if (readBytes < -1) {   // -1 is the return after a non-blocking call returned nothing.
         perror("Error reading from ACIA serial port");

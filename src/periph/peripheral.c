@@ -40,10 +40,19 @@ void interactWithPeripheral(
     printWarning("No peripheral found at direction 0x%x\n", direction);
 }
 
-void updatePeripherals(void* cpu) {
+void updatePeripherals(void* pcpu) {
     Peripheral* per;
+
+    CPU* cpu = (CPU*) pcpu;
+    cpu->irqb = 1;
+
     for(int i = 0; i < peripheralCount; i++){
         per = peripheralList[i];
-        if(per->update != NULL) per->update(cpu, per);
+        if(per->update != NULL) {
+            per->update(cpu, per);
+            
+            // This will "OR" all IRQ requests.
+            cpu->irqb &= per->irqb;
+        }
     }
 }

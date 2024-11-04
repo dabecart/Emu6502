@@ -12,16 +12,19 @@
 #include "acia.h"
 
 Peripheral rom = {
-    .baseAddr = 0xC000,
+    .baseAddr   = 0xC000,
     .addressLen = 16*1024,
+    .irqb       = 1,
 };
 Peripheral ram = {
-    .baseAddr = 0x0000,
+    .baseAddr   = 0x0000,
     .addressLen = 16*1024,
+    .irqb       = 1,
 };
 Peripheral acia1 = {
-    .baseAddr = 0xA000,
+    .baseAddr   = 0xA000,
     .addressLen = 4,
+    .irqb       = 1,
 };
 CPU cpu;
 
@@ -54,8 +57,7 @@ int main(int argc, char **argv) {
     // Initialize CPU.
     initCPU(&cpu);
     setNestingPrintIndexCPU(&cpu, NESTING_PRINT_INDEX);
-    FILE* fout = setOutputFileCPU(&cpu, outputFile);
-    setOutputFileSimulator(fout);
+    setOutputFileSimulator(outputFile);
 
     // Catch signals to exit the loop securely.
     signal(SIGINT, handleSIGINT);

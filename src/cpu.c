@@ -269,12 +269,14 @@ void initCPU(CPU* cpu) {
     cpu->acc = 0;
     cpu->x = 0;
     cpu->stack = 0;
-    cpu->status.val = 0b00100000;
+    cpu->status.val = 0b00110100;   // Taken from the WSC6502S datasheet.
     cpu->y = 0;
+
+    cpu->irqb = 1;
+    cpu->nmib = 1;
 
     cpu->nestingIndex = 0;
     cpu->haltProgram = 0;
-    cpu->outputFile = NULL;
 
     // Prints all nested functions.
     cpu->nestingPrintIndex = 256;
@@ -289,6 +291,50 @@ void initCPU(CPU* cpu) {
 void routineCPU(CPU* cpu) {
     // Save a copy of the entry PC.
     cpu->previousPC = cpu->pc;
+
+    // Check if an interruption has occurred.
+    if(!cpu->status.flags.irqDisable && cpu->irqb == 0) {
+        uint16_t previousPC = cpu->pc;
+
+        // Save the PC and the status register.
+        interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->pc >> 8,    WRITE_PERIPH, NULL);
+        interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->pc,         WRITE_PERIPH, NULL);
+        interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->status.val, WRITE_PERIPH, NULL);
+
+        cpu->status.flags.irqDisable = 1;
+
+        // Get the IRQB vector.
+        interactWithPeripheral(cpu, 0xFFFE, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
+        interactWithPeripheral(cpu, 0xFFFF, 0, READ_PERIPH, ((uint8_t*) (&cpu->pc)) + 1);
+
+        cpu->clockCount += 7;
+
+        printMessage("IRQ to 0x%04x. Stacked PC:0x%04x and STATUS:0x%02x\n", 
+                     cpu->pc, previousPC, cpu->status.val);
+        return;
+    }
+
+    // Check if a non-maskable interruption has occurred.
+    if(cpu->nmib == 0) {
+        uint16_t previousPC = cpu->pc;
+
+        // Save the PC and the status register.
+        interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->pc >> 8,    WRITE_PERIPH, NULL);
+        interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->pc,         WRITE_PERIPH, NULL);
+        interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->status.val, WRITE_PERIPH, NULL);
+
+        cpu->status.flags.irqDisable = 1;
+
+        // Get the NMIB vector.
+        interactWithPeripheral(cpu, 0xFFFA, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
+        interactWithPeripheral(cpu, 0xFFFB, 0, READ_PERIPH, ((uint8_t*) (&cpu->pc)) + 1);
+
+        cpu->clockCount += 7;
+
+        printMessage("IRQ to 0x%04x. Stacked PC:0x%04x and STATUS:0x%02x\n", 
+                     cpu->pc, previousPC, cpu->status.val);
+        return;
+    }
 
     // Get the OP code.
     uint8_t opCode;
@@ -334,31 +380,31 @@ void routineCPU(CPU* cpu) {
         break;
 
         case ABS_INDIRECT_ADDRS:    // Only used on JMP instruction.
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + 1, 0, READ_PERIPH, rawOpDirection + 1);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + 1,    0, READ_PERIPH, rawOpDirection + 1);
             break;
 
         case ABS_ADDRS:
         case ZP_ADDRS:
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_X_ADDRS:
         case ZP_INDEXED_X_ADDRS:
             opDirection += cpu->x;
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_Y_ADDRS:
         case ZP_INDEXED_Y_ADDRS:
             opDirection += cpu->y;
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
         break;
 
         case ZP_INDIRECT_ADDRS:
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + 1, 0, READ_PERIPH, rawOpDirection + 1);
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + 1,    0, READ_PERIPH, rawOpDirection + 1);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_INDIRECT_ADDRS:
@@ -367,16 +413,16 @@ void routineCPU(CPU* cpu) {
             // the ZP is only eight bits.
 
         case ZP_INDEXED_INDIRECT_ADDRS:
-            interactWithPeripheral(cpu, opDirection + cpu->x, 0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + cpu->x + 1, 0, READ_PERIPH, rawOpDirection + 1);
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection + cpu->x,       0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + cpu->x + 1,   0, READ_PERIPH, rawOpDirection + 1);
+            interactWithPeripheral(cpu, opDirection,                0, READ_PERIPH, &opData);
         break;
 
         case ZP_INDIRECT_INDEXED_Y_ADDRS:
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + 1, 0, READ_PERIPH, rawOpDirection + 1);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, rawOpDirection);
+            interactWithPeripheral(cpu, opDirection + 1,    0, READ_PERIPH, rawOpDirection + 1);
             opDirection += cpu->y;
-            interactWithPeripheral(cpu, opDirection, 0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
         break;
 
         default:
@@ -410,8 +456,6 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
     
     previousNestingIndex = cpu->nestingIndex;
 
-    printf("\033[1F");  // Go up a line.
-    
     outputLen += sprintf(outputLine, "0x%04x: %02x  ", cpu->previousPC, instruction->opCode);
     for(int i = 1; i < 3; i++) {
         if((i+1) <= instruction->byteLength){
@@ -503,11 +547,17 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
     // Reset comment string.
     cpu->funcComment[0] = 0;
 
-    printMessage(outputLine, cpu->outputFile);
+#if ENABLE_TERMINAL_PRINT
+    printf("\033[1F");  // Go up a line.
+#endif
 
+    printMessage(outputLine);
+
+#if ENABLE_TERMINAL_PRINT
     printf("\33[38;5;0;48;5;255m"); // Invert color scheme.
     printf("PC      O0  O1  O2     MNE OPS          DIR     A   X   Y   STACK N V 1 B D I Z C   FUNCTION COMMENT                   CLK   ");
     printf("\33[m\n");   // Clear style, go up a line.
+#endif
 }
 
 void setNestingPrintIndexCPU(CPU* cpu, int printIndex) {
@@ -515,17 +565,8 @@ void setNestingPrintIndexCPU(CPU* cpu, int printIndex) {
     cpu->nestingPrintIndex = NESTING_PRINT_INDEX;
 }
 
-FILE* setOutputFileCPU(CPU* cpu, char* outputFile) {
-    if(cpu == NULL || outputFile == NULL) return NULL;
-    cpu->outputFile = fopen(outputFile, "w");
-    return cpu->outputFile;
-}
-
 void freeCPU(CPU* cpu) {
     if(cpu == NULL) return;
-    if(cpu->outputFile != NULL) {
-        fclose(cpu->outputFile);
-    }
 }
 
 

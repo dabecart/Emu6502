@@ -12,6 +12,8 @@ typedef struct Peripheral {
     int baseAddr;   // Parting point for the addressing.
     int addressLen; // Number of bits that can be addressed.
 
+    int irqb;        // It's own IRQ triggering signal. 0: triggers.
+
     // Pointer to an struct holding the data for the specific peripheral. Cast it to the 
     // correspondent type to use it.
     void* data;

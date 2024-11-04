@@ -35,6 +35,9 @@ typedef struct CPU {
     uint8_t stack;      // LSB of Stack Pointer. MSB is always 1.
     CPUStatus status;   // Status/Flags register.
 
+    uint8_t nmib;       // Non-maskable IRQ. Triggered when 0.
+    uint8_t irqb;       // IRQ input signal. Triggered when 0.
+
     // Statistics.
     unsigned long long clockCount;
     int nestingIndex;
@@ -48,7 +51,6 @@ typedef struct CPU {
 
     // Function comments.
     char funcComment[CPU_COMMENT_LENGTH];
-    FILE* outputFile;
 } CPU;
 
 typedef enum CPUAddressing {

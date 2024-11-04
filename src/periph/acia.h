@@ -79,8 +79,8 @@ typedef struct StatusRegACIA {
     uint8_t overrunError        : 1;
     uint8_t rxFull              : 1;
     uint8_t txEmpty             : 1;
-    uint8_t dataCarrierDetect   : 1;
-    uint8_t dataSetReady        : 1;
+    uint8_t dataCarrierDetect   : 1;        // Not implemented nor used.
+    uint8_t dataSetReady        : 1;        // Not implemented nor used.
     uint8_t irq                 : 1;
 } StatusRegACIA;
 
@@ -101,9 +101,10 @@ typedef struct PeripheralACIA {
     int serial;         // Serial file descriptor.
     int txPending;
     unsigned long long cpuClockOnTX;
+    unsigned long long cpuClockOnRX;
 
-    int txLength;   // Number of bits sent per RX byte.
-    int baudrate;   // Numerical baudrate.
+    int commsBitLength; // Number of bits sent per communications byte.
+    int baudrate;       // Numerical baudrate.
 } PeripheralACIA;
 
 void initializeACIA(Peripheral* periph);
