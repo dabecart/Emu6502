@@ -103,19 +103,13 @@ sub_u16:
   RTS
 
 mult_u16:
-  LDA #$80      ; Preload sentinel bit. It will travel 16 positions until it gets in the C and done!
-  STA RESULT+1
-  LDA OP1
-  BNE L0_u16
-  DEC OP1+1     ; Subtract 1 from OP1 so that non CLC has to be used on the ADC call (nifty).
-L0_u16:
-	DEC OP1
-
+  LDX #16
 L1_u16:
   LSR OP2+1
   ROR OP2      ; Get low bit of OP2
   BCC L2_u16   ; 0 or 1?
-  LDA AUX      ; If 1, add (OP1-1)+1
+  LDA AUX      ; If 1, add to the "summing area" in AUX
+  CLC
   ADC OP1      
   STA AUX          
   LDA AUX+1
@@ -126,7 +120,8 @@ L2_u16:
   ROR AUX
   ROR RESULT+1
   ROR RESULT
-  BCC L1_u16   ; When sentinel falls off into carry, we're done
+  DEX
+  BNE L1_u16
 
   LDA AUX+1
   STA RESULT+3

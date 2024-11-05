@@ -14,6 +14,8 @@
 // Set to 1 to print to the terminal with colors.
 #define PRINT_IN_COLOR          1
 
+#define SIMULATE_W65C02S        1
+
 // 0: Bit 4 of STATUS register (TX Data Register Empty) is always set to 1 (like the W65C51 bug).
 //    Makes it faster to get a response from the 6502.
 // 1: Depending on the baudrate and the clock cycles of the CPU, TX Data Register Empty will be set

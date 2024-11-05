@@ -400,7 +400,7 @@ void setSerialACIA(Peripheral* periph, char* serialRoute) {
     tty.c_iflag &= ~(IXON | IXOFF | IXANY);         // Shut off xon/xoff ctrl.
 
     tty.c_cflag |= (CLOCAL | CREAD);                // Enable reading.
-    tty.c_cflag &= ~CRTSCTS;                        // Disable CRS/CTS.
+    tty.c_cflag |= CRTSCTS;                         // Enable CRS/CTS.
 
     if (tcsetattr(acia->serial, TCSANOW, &tty) != 0) {
         perror("Error setting ACIA serial port attributes");

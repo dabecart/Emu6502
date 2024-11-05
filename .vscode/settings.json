@@ -4,6 +4,9 @@
         "ram.h": "c",
         "peripheral.h": "c",
         "stdint.h": "c",
-        "cpu.h": "c"
+        "cpu.h": "c",
+        "acia.h": "c",
+        "unistd.h": "c",
+        "functional": "c"
     }
 }

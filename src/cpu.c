@@ -59,7 +59,11 @@ const CPUInstruction instructions[] = {
     {"IND", 0x37, INVALID_ADDRS},
     {"SEC", 0x38, IMPLIED_ADDRS,                 1, 2, SEC_ins_},  // SEC: Set Carry Flag
     {"AND", 0x39, ABS_INDEXED_Y_ADDRS,           3, 4, AND_ins_},  // AND: AND Memory with Accumulator
+#if SIMULATE_W65C02S
+    {"DEC", 0x3a, ACCUMULATOR_ADDRS,             1, 2, DEC_ins_},  // DEC: Decrement Memory by One
+#else
     {"IND", 0x3a, INVALID_ADDRS},
+#endif    
     {"IND", 0x3b, INVALID_ADDRS},
     {"IND", 0x3c, INVALID_ADDRS},
     {"AND", 0x3d, ABS_INDEXED_X_ADDRS,           3, 4, AND_ins_},  // AND: AND Memory with Accumulator
@@ -346,7 +350,7 @@ void routineCPU(CPU* cpu) {
         exit(-1);
     }
 
-    // Get the instruction arguments. 
+    // Get the instruction arguments.
     uint16_t rawArgs = 0;
     // This will only work on little endian devices!
     uint8_t* rawArgsBuffer = (uint8_t*) (&rawArgs);
@@ -356,8 +360,9 @@ void routineCPU(CPU* cpu) {
 
     // Calculate the operation argument/direction based on the addressing type and the instruction
     // arguments.
-    uint16_t opDirection = rawArgs;
-    uint8_t* rawOpDirection = (uint8_t*) (&opDirection);
+    uint16_t opAddrs = rawArgs;
+    uint16_t indirAddrs = 0;
+    uint8_t* rawIndirAddrs = (uint8_t*) (&indirAddrs);
     uint8_t opData = 0;
 
     switch(instruction.addressing) {
@@ -376,53 +381,56 @@ void routineCPU(CPU* cpu) {
 
         case PROGRAM_COUNTER_ADDRS:
             // Only used on branch instructions. If the branch is taken, jump to opData.
-            opDirection = cpu->pc + (int8_t)opDirection;
+            opAddrs = cpu->pc + (int8_t)opAddrs;
         break;
 
         case ABS_INDIRECT_ADDRS:    // Only used on JMP instruction.
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + 1,    0, READ_PERIPH, rawOpDirection + 1);
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, rawIndirAddrs);
+            interactWithPeripheral(cpu, opAddrs + 1,    0, READ_PERIPH, rawIndirAddrs + 1);
+            opAddrs = indirAddrs;
             break;
 
         case ABS_ADDRS:
         case ZP_ADDRS:
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_X_ADDRS:
         case ZP_INDEXED_X_ADDRS:
-            opDirection += cpu->x;
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
+            opAddrs += cpu->x;
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_Y_ADDRS:
         case ZP_INDEXED_Y_ADDRS:
-            opDirection += cpu->y;
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
+            opAddrs += cpu->y;
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, &opData);
         break;
 
         case ZP_INDIRECT_ADDRS:
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + 1,    0, READ_PERIPH, rawOpDirection + 1);
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, rawIndirAddrs);
+            interactWithPeripheral(cpu, opAddrs + 1,    0, READ_PERIPH, rawIndirAddrs + 1);
+            opAddrs = indirAddrs;
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, &opData);
         break;
 
         case ABS_INDEXED_INDIRECT_ADDRS:
             // Only used on JMP instruction (new mode created on the 65C02).
-            // Same as below with the difference that the opDirection here is a 16 bit value, and on
+            // Same as below with the difference that the opAddrs here is a 16 bit value, and on
             // the ZP is only eight bits.
 
         case ZP_INDEXED_INDIRECT_ADDRS:
-            interactWithPeripheral(cpu, opDirection + cpu->x,       0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + cpu->x + 1,   0, READ_PERIPH, rawOpDirection + 1);
-            interactWithPeripheral(cpu, opDirection,                0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opAddrs + cpu->x,       0, READ_PERIPH, rawIndirAddrs);
+            interactWithPeripheral(cpu, opAddrs + cpu->x + 1,   0, READ_PERIPH, rawIndirAddrs + 1);
+            opAddrs = indirAddrs;
+            interactWithPeripheral(cpu, opAddrs,                0, READ_PERIPH, &opData);
         break;
 
         case ZP_INDIRECT_INDEXED_Y_ADDRS:
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, rawOpDirection);
-            interactWithPeripheral(cpu, opDirection + 1,    0, READ_PERIPH, rawOpDirection + 1);
-            opDirection += cpu->y;
-            interactWithPeripheral(cpu, opDirection,        0, READ_PERIPH, &opData);
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, rawIndirAddrs);
+            interactWithPeripheral(cpu, opAddrs + 1,    0, READ_PERIPH, rawIndirAddrs + 1);
+            opAddrs = indirAddrs + cpu->y;
+            interactWithPeripheral(cpu, opAddrs,        0, READ_PERIPH, &opData);
         break;
 
         default:
@@ -431,10 +439,10 @@ void routineCPU(CPU* cpu) {
     }
 
     // Once the instruction and its arguments are parsed, call the operation.
-    instruction.callback(cpu, &instruction, opDirection, opData);
+    instruction.callback(cpu, &instruction, opAddrs, opData);
 
 #if NESTING_PRINT_INDEX > 0
-    printInstruction(cpu, &instruction, rawArgsBuffer, opDirection, opData);
+    printInstruction(cpu, &instruction, rawArgsBuffer, opAddrs, opData);
 #endif
 
     // Increment the cycle counter.
@@ -773,8 +781,12 @@ void CPY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 // Decrement Memory by One
 void DEC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
     data--;
-    
-    interactWithPeripheral(cpu, dir, data, WRITE_PERIPH, NULL);
+
+    if(instruction->addressing == ACCUMULATOR_ADDRS) {
+        cpu->acc = data;
+    }else {
+        interactWithPeripheral(cpu, dir, data, WRITE_PERIPH, NULL);
+    }
 
     cpu->status.flags.zero = data == 0;
     cpu->status.flags.negative = data >= 0x80;
