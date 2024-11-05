@@ -16,7 +16,7 @@ If you are using VS Code:
     - To run without debugging: run the task`Debug: Start Without Debugging` (`Ctrl + F5`) 
     - To debug: run the task `Debug: Start Debugging` (`F5`)
 
-# Simulating the peripherals:
+# Simulating the peripherals
 
 ## ACIA: Asynchronous Communications Interface Adapter
 

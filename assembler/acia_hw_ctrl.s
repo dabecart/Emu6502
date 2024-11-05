@@ -111,6 +111,9 @@ print_new_char:
   cmp #'/'
   beq set_operation
 
+  cmp #'='
+  beq run_operation
+
 check_enter_press:
   cmp #$D             ; Compare if the current input is /r  => End of program.
 
@@ -133,19 +136,21 @@ set_operation:
   jsr parse_number          ; Parse the number.
   jmp wait_input
 
+
+run_operation:
+  
+
+
 parse_number:
   ; The number is between the PRINT and TAIL, where PRINT is the less significant digit.
   ; BUFF_PRINT is currently pointing to the next position after operator (+,-,*,/) or the = sign.
-  lda BUFF_PRINT
-  dec A                     ; Now it's on the operator.
-  dec A                     ; Now it's on the number.
-  pha
+  dec BUFF_PRINT            ; Now it's on the operator. If the TAIL reaches this point, the 
+                            ; parsing has finished. This decrement is temporary.
 
 parse_number_next_digit:
-  pla
-  cmp BUFF_TAIL             ; If A < TAIL, the number has been parsed. 
-  bmi parse_number_return
-  pha                       ; Put the index of the digit on the stack.
+  lda BUFF_TAIL
+  cmp BUFF_PRINT            ; If TAIL == PRINT, the number has been parsed. 
+  beq parse_number_return
   
   ldy #0
   lda (CALC_OP_DIRECTION),y   ; Multiply the current number by 10.
@@ -171,19 +176,13 @@ parse_number_next_digit:
   sta (CALC_OP_DIRECTION),y
   sta OP1+1
 
-  pla                       ; Restore the index of the digit from the stack.
-  tax
+  ldx BUFF_TAIL             ; Get the index of the current digit.
+  inc BUFF_TAIL             ; Increment it for the next iteration.
   lda BUFF,x
   cmp #'0'                  ; Check if the digit is valid.
   bcc print_error           ; If less than zero, print error and go back to the start.
   cmp #':'                  ; : is the next character after '9'
   bcs print_error
-
-  tay
-  dex                       ; Decrement the index and save it for the next iteration.
-  txa                       ; Substitute all this by dex and phx
-  pha
-  tya
 
   sec
   sbc #'0'                  ; Convert the digit from ASCII to integer
@@ -204,14 +203,12 @@ parse_number_next_digit:
   sta (CALC_OP_DIRECTION),y
 
   jmp parse_number_next_digit
-parse_number_return:
-  ldy #0
-  lda (CALC_OP_DIRECTION),y
-  iny
-  lda (CALC_OP_DIRECTION),y
 
-  brk
+parse_number_return:
+  inc BUFF_PRINT            ; Restore the PRINT index.
+  inc BUFF_TAIL             ; Pass the buff TAIL over the operator index.
   rts
+
 
 print_error:                ; PRINT_STRING_ADDRS = error_str and print it.
   lda #<error_str

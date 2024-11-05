@@ -75,7 +75,11 @@ typedef enum CPUAddressing {
 } CPUAddressing;
 
 typedef struct CPUInstruction {
+#if SIMULATE_W65C02S
+    char            mnemonic[4];
+#else
     char            mnemonic[3];
+#endif
     uint8_t         opCode;
     CPUAddressing   addressing; 
     int             byteLength;
@@ -154,5 +158,50 @@ void TSX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 void TXA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
 void TXS_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
 void TYA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+
+#if SIMULATE_W65C02S
+void BRA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void PHX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void PHY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void PLX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void PLY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void STZ_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void TRB_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void TSB_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBR7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void BBS7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void RMB7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void SMB7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void STP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+void WAI_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data);
+#endif // Simulate WDC65C02
 
 #endif // CPU_h

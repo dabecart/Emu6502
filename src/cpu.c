@@ -13,7 +13,7 @@ const CPUInstruction instructions[] = {
     {"ORA", 0x05, ZP_ADDRS,                      2, 3, ORA_ins_},  // ORA: OR Memory with Accumulator
     {"ASL", 0x06, ZP_ADDRS,                      2, 5, ASL_ins_},  // ASL: Shift Left One Bit (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB0", 0x07, ZP_ADDRS,                     2, 3, RMB0_ins_}, // RMB0: Reset Memory Bit 0
+    {"RMB0", 0x07, ZP_ADDRS,                     2, 5, RMB0_ins_}, // RMB0: Reset Memory Bit 0
 #else
     {"INV", 0x07, INVALID_ADDRS},
 #endif
@@ -22,14 +22,14 @@ const CPUInstruction instructions[] = {
     {"ASL", 0x0a, ACCUMULATOR_ADDRS,             1, 2, ASL_ins_},  // ASL: Shift Left One Bit (Memory or Accumulator)
     {"INV", 0x0b, INVALID_ADDRS},
 #if SIMULATE_W65C02S
-    {"TSB", 0x0b, ACCUMULATOR_ADDRS,             1, 2, TSB_ins_},  // TSB: Test and Set memory Bit
+    {"TSB", 0x0c, ABS_ADDRS,                     3, 6, TSB_ins_},  // TSB: Test and Set memory Bit
 #else
     {"INV", 0x0c, INVALID_ADDRS},
 #endif
     {"ORA", 0x0d, ABS_ADDRS,                     3, 4, ORA_ins_},  // ORA: OR Memory with Accumulator
     {"ASL", 0x0e, ABS_ADDRS,                     3, 6, ASL_ins_},  // ASL: Shift Left One Bit (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR0", 0x0f, PROGRAM_COUNTER_ADDRS,        2, 2, BBR0_ins_}, // BBR0: Branch on Bit Reset 0
+    {"BBR0", 0x0f, ZP_ADDRS,                     3, 5, BBR0_ins_}, // BBR0: Branch on Bit Reset 0
 #else
     {"INV", 0x0f, INVALID_ADDRS},
 #endif
@@ -42,32 +42,34 @@ const CPUInstruction instructions[] = {
 #endif
     {"INV", 0x13, INVALID_ADDRS},
 #if SIMULATE_W65C02S
-    {"TRB", 0x14, ZP_ADDRS,                      2, 3, TRB_ins_},
+    {"TRB", 0x14, ZP_ADDRS,                      2, 5, TRB_ins_},  // TRB: Test and Reset memory Bit
 #else
     {"INV", 0x14, INVALID_ADDRS},
 #endif
     {"ORA", 0x15, ZP_INDEXED_X_ADDRS,            2, 4, ORA_ins_},  // ORA: OR Memory with Accumulator
     {"ASL", 0x16, ZP_INDEXED_X_ADDRS,            2, 6, ASL_ins_},  // ASL: Shift Left One Bit (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB1", 0x17, ZP_ADDRS,                     2, 3, RMB1_ins_}, // RMB1: Reset Memory Bit 1
+    {"RMB1", 0x17, ZP_ADDRS,                     2, 5, RMB1_ins_}, // RMB1: Reset Memory Bit 1
 #else
     {"INV", 0x17, INVALID_ADDRS},
 #endif
     {"CLC", 0x18, IMPLIED_ADDRS,                 1, 2, CLC_ins_},  // CLC: Clear Carry Flag
     {"ORA", 0x19, ABS_INDEXED_Y_ADDRS,           3, 4, ORA_ins_},  // ORA: OR Memory with Accumulator
 #if SIMULATE_W65C02S
+    {"INC", 0x1a, ACCUMULATOR_ADDRS,             1, 2, INC_ins_},  // INC: Increment Memory by One
 #else
     {"INV", 0x1a, INVALID_ADDRS},
 #endif
     {"INV", 0x1b, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"TRB", 0x1c, ABS_ADDRS,                     3, 6, TRB_ins_},  // TRB: Test and Reset memory Bit
 #else
     {"INV", 0x1c, INVALID_ADDRS},
 #endif
     {"ORA", 0x1d, ABS_INDEXED_X_ADDRS,           3, 4, ORA_ins_},  // ORA: OR Memory with Accumulator
     {"ASL", 0x1e, ABS_INDEXED_X_ADDRS,           3, 7, ASL_ins_},  // ASL: Shift Left One Bit (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR1", 0x1f, PROGRAM_COUNTER_ADDRS,        2, 2, BBR1_ins_}, // BBR1: Branch on Bit Reset 1
+    {"BBR1", 0x1f, ZP_ADDRS,                     3, 5, BBR1_ins_}, // BBR1: Branch on Bit Reset 1
 #else
     {"INV", 0x1f, INVALID_ADDRS},
 #endif
@@ -79,7 +81,7 @@ const CPUInstruction instructions[] = {
     {"AND", 0x25, ZP_ADDRS,                      2, 3, AND_ins_},  // AND: AND Memory with Accumulator
     {"ROL", 0x26, ZP_ADDRS,                      2, 5, ROL_ins_},  // ROL: Rotate One Bit Left (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB2", 0x27, ZP_ADDRS,                     2, 3, RMB2_ins_}, // RMB2: Reset Memory Bit 2
+    {"RMB2", 0x27, ZP_ADDRS,                     2, 5, RMB2_ins_}, // RMB2: Reset Memory Bit 2
 #else
     {"INV", 0x27, INVALID_ADDRS},
 #endif
@@ -91,25 +93,27 @@ const CPUInstruction instructions[] = {
     {"AND", 0x2d, ABS_ADDRS,                     3, 4, AND_ins_},  // AND: AND Memory with Accumulator
     {"ROL", 0x2e, ABS_ADDRS,                     3, 6, ROL_ins_},  // ROL: Rotate One Bit Left (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR2", 0x2f, PROGRAM_COUNTER_ADDRS,        2, 2, BBR2_ins_}, // BBR2: Branch on Bit Reset 2
+    {"BBR2", 0x2f, ZP_ADDRS,                     3, 5, BBR2_ins_}, // BBR2: Branch on Bit Reset 2
 #else
     {"INV", 0x2f, INVALID_ADDRS},
 #endif
     {"BMI", 0x30, PROGRAM_COUNTER_ADDRS,         2, 2, BMI_ins_},  // BMI: Branch on Result Minus
     {"AND", 0x31, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 5, AND_ins_},  // AND: AND Memory with Accumulator
 #if SIMULATE_W65C02S
+    {"AND", 0x32, ZP_INDIRECT_ADDRS,             2, 5, AND_ins_},  // AND: AND Memory with Accumulator
 #else
     {"INV", 0x32, INVALID_ADDRS},
 #endif
     {"INV", 0x33, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"BIT", 0x34, ZP_INDEXED_X_ADDRS,            2, 4, BIT_ins_},   // BIT: Test Bits in Memory with Accumulator
 #else
     {"INV", 0x34, INVALID_ADDRS},
 #endif
     {"AND", 0x35, ZP_INDEXED_X_ADDRS,            2, 4, AND_ins_},  // AND: AND Memory with Accumulator
     {"ROL", 0x36, ZP_INDEXED_X_ADDRS,            2, 6, ROL_ins_},  // ROL: Rotate One Bit Left (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB3", 0x37, ZP_ADDRS,                     2, 3, RMB3_ins_}, // RMB3: Reset Memory Bit 3
+    {"RMB3", 0x37, ZP_ADDRS,                     2, 5, RMB3_ins_}, // RMB3: Reset Memory Bit 3
 #else
     {"INV", 0x37, INVALID_ADDRS},
 #endif
@@ -122,13 +126,14 @@ const CPUInstruction instructions[] = {
 #endif    
     {"INV", 0x3b, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"BIT", 0x3c, ABS_INDEXED_X_ADDRS,           3, 4, BIT_ins_},  // BIT: Test Bits in Memory with Accumulator
 #else
     {"INV", 0x3c, INVALID_ADDRS},
 #endif
     {"AND", 0x3d, ABS_INDEXED_X_ADDRS,           3, 4, AND_ins_},  // AND: AND Memory with Accumulator
     {"ROL", 0x3e, ABS_INDEXED_X_ADDRS,           3, 7, ROL_ins_},  // ROL: Rotate One Bit Left (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR3", 0x3f, PROGRAM_COUNTER_ADDRS,        2, 2, BBR3_ins_}, // BBR3: Branch on Bit Reset 3
+    {"BBR3", 0x3f, ZP_ADDRS,                     3, 5, BBR3_ins_}, // BBR3: Branch on Bit Reset 3
 #else
     {"INV", 0x3f, INVALID_ADDRS},
 #endif
@@ -140,7 +145,7 @@ const CPUInstruction instructions[] = {
     {"EOR", 0x45, ZP_ADDRS,                      2, 3, EOR_ins_},  // EOR: Exclusive-OR Memory with Accumulator
     {"LSR", 0x46, ZP_ADDRS,                      2, 5, LSR_ins_},  // LSR: Shift One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB4", 0x47, ZP_ADDRS,                     2, 3, RMB4_ins_}, // RMB4: Reset Memory Bit 4
+    {"RMB4", 0x47, ZP_ADDRS,                     2, 5, RMB4_ins_}, // RMB4: Reset Memory Bit 4
 #else
     {"INV", 0x47, INVALID_ADDRS},
 #endif
@@ -152,13 +157,14 @@ const CPUInstruction instructions[] = {
     {"EOR", 0x4d, ABS_ADDRS,                     3, 4, EOR_ins_},  // EOR: Exclusive-OR Memory with Accumulator
     {"LSR", 0x4e, ABS_ADDRS,                     3, 6, LSR_ins_},  // LSR: Shift One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR4", 0x4f, PROGRAM_COUNTER_ADDRS,         2, 2, BBR4_ins_}, // BBR4: Branch on Bit Reset 4
+    {"BBR4", 0x4f, PROGRAM_COUNTER_ADDRS,        3, 5, BBR4_ins_}, // BBR4: Branch on Bit Reset 4
 #else
     {"INV", 0x4f, INVALID_ADDRS},
 #endif
     {"BVC", 0x50, PROGRAM_COUNTER_ADDRS,         2, 2, BVC_ins_},  // BVC: Branch on Overflow Clear
     {"EOR", 0x51, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 5, EOR_ins_},  // EOR: Exclusive-OR Memory with Accumulator
 #if SIMULATE_W65C02S
+    {"EOR", 0x52, ZP_INDIRECT_ADDRS,             2, 5, EOR_ins_},  // EOR: Exclusive-OR Memory with Accumulator
 #else
     {"INV", 0x52, INVALID_ADDRS},
 #endif
@@ -167,13 +173,14 @@ const CPUInstruction instructions[] = {
     {"EOR", 0x55, ZP_INDEXED_X_ADDRS,            2, 4, EOR_ins_},  // EOR: Exclusive-OR Memory with Accumulator
     {"LSR", 0x56, ZP_INDEXED_X_ADDRS,            2, 6, LSR_ins_},  // LSR: Shift One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB5", 0x57, ZP_ADDRS,                     2, 3, RMB5_ins_}, // RMB5: Reset Memory Bit 5
+    {"RMB5", 0x57, ZP_ADDRS,                     2, 5, RMB5_ins_}, // RMB5: Reset Memory Bit 5
 #else
     {"INV", 0x57, INVALID_ADDRS},
 #endif
     {"CLI", 0x58, IMPLIED_ADDRS,                 1, 2, CLI_ins_},  // CLI: Clear Interrupt Disable Bit
     {"EOR", 0x59, ABS_INDEXED_Y_ADDRS,           3, 4, EOR_ins_},  // EOR: Exclusive-OR Memory with Accumulator
 #if SIMULATE_W65C02S
+    {"PHY", 0x5a, STACK_ADDRS,                   1, 3, PHY_ins_},  // PHY: Push Y
 #else
     {"INV", 0x5a, INVALID_ADDRS},
 #endif
@@ -182,7 +189,7 @@ const CPUInstruction instructions[] = {
     {"EOR", 0x5d, ABS_INDEXED_X_ADDRS,           3, 4, EOR_ins_},  // EOR: Exclusive-OR Memory with Accumulator
     {"LSR", 0x5e, ABS_INDEXED_X_ADDRS,           3, 7, LSR_ins_},  // LSR: Shift One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR5", 0x5f, PROGRAM_COUNTER_ADDRS,        2, 2, BBR5_ins_}, // BBR5: Branch on Bit Reset 5
+    {"BBR5", 0x5f, ZP_ADDRS,                     3, 5, BBR5_ins_}, // BBR5: Branch on Bit Reset 5
 #else
     {"INV", 0x5f, INVALID_ADDRS},
 #endif
@@ -191,13 +198,14 @@ const CPUInstruction instructions[] = {
     {"INV", 0x62, INVALID_ADDRS},
     {"INV", 0x63, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"STZ", 0x64, ZP_ADDRS,                      2, 3, STZ_ins_},  // STZ: Store Zero
 #else
     {"INV", 0x64, INVALID_ADDRS},
 #endif
     {"ADC", 0x65, ZP_ADDRS,                      2, 3, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
     {"ROR", 0x66, ZP_ADDRS,                      2, 5, ROR_ins_},  // ROR: Rotate One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB6", 0x67, ZP_ADDRS,                     2, 3, RMB6_ins_}, // RMB6: Reset Memory Bit 6
+    {"RMB6", 0x67, ZP_ADDRS,                     2, 5, RMB6_ins_}, // RMB6: Reset Memory Bit 6
 #else
     {"INV", 0x67, INVALID_ADDRS},
 #endif
@@ -205,51 +213,56 @@ const CPUInstruction instructions[] = {
     {"ADC", 0x69, IMMEDIATE_ADDRS,               2, 2, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
     {"ROR", 0x6a, ACCUMULATOR_ADDRS,             1, 2, ROR_ins_},  // ROR: Rotate One Bit Right (Memory or Accumulator)
     {"INV", 0x6b, INVALID_ADDRS},
-    {"JMP", 0x6c, ABS_INDIRECT_ADDRS,            3, 5, JMP_ins_},  // JMP: Jump to New Location
+    {"JMP", 0x6c, ABS_INDIRECT_ADDRS,            3, 6, JMP_ins_},  // JMP: Jump to New Location
     {"ADC", 0x6d, ABS_ADDRS,                     3, 4, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
     {"ROR", 0x6e, ABS_ADDRS,                     3, 6, ROR_ins_},  // ROR: Rotate One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR6", 0x6f, PROGRAM_COUNTER_ADDRS,        2, 2, BBR6_ins_}, // BBR6: Branch on Bit Reset 6
+    {"BBR6", 0x6f, ZP_ADDRS,                     3, 5, BBR6_ins_}, // BBR6: Branch on Bit Reset 6
 #else
     {"INV", 0x6f, INVALID_ADDRS},
 #endif
     {"BVS", 0x70, PROGRAM_COUNTER_ADDRS,         2, 2, BVS_ins_},  // BVS: Branch on Overflow Set
     {"ADC", 0x71, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 5, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
 #if SIMULATE_W65C02S
+    {"ADC", 0x72, ZP_INDIRECT_ADDRS,             2, 5, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
 #else
     {"INV", 0x72, INVALID_ADDRS},
 #endif
     {"INV", 0x73, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"STZ", 0x74, ZP_INDEXED_X_ADDRS,            2, 4, STZ_ins_},  // STZ: Store Zero
 #else
     {"INV", 0x74, INVALID_ADDRS},
 #endif
     {"ADC", 0x75, ZP_INDEXED_X_ADDRS,            2, 4, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
     {"ROR", 0x76, ZP_INDEXED_X_ADDRS,            2, 6, ROR_ins_},  // ROR: Rotate One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"RMB7", 0x77, ZP_ADDRS,                     2, 3, RMB7_ins_}, // RMB7: Reset Memory Bit 7
+    {"RMB7", 0x77, ZP_ADDRS,                     2, 5, RMB7_ins_}, // RMB7: Reset Memory Bit 7
 #else
     {"INV", 0x77, INVALID_ADDRS},
 #endif
     {"SEI", 0x78, IMPLIED_ADDRS,                 1, 2, SEI_ins_},  // SEI: Set Interrupt Disable Status
     {"ADC", 0x79, ABS_INDEXED_Y_ADDRS,           3, 4, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
 #if SIMULATE_W65C02S
+    {"PLY", 0x7a, IMPLIED_ADDRS,                 1, 4, PLY_ins_},  // PLY: Pull Y
 #else
     {"INV", 0x7a, INVALID_ADDRS},
 #endif
     {"INV", 0x7b, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"JMP", 0x7c, ABS_INDEXED_INDIRECT_ADDRS,    3, 6, JMP_ins_},  // JMP: Jump to new location
 #else
     {"INV", 0x7c, INVALID_ADDRS},
 #endif
     {"ADC", 0x7d, ABS_INDEXED_X_ADDRS,           3, 4, ADC_ins_},  // ADC: Add Memory to Accumulator with Carry
     {"ROR", 0x7e, ABS_INDEXED_X_ADDRS,           3, 7, ROR_ins_},  // ROR: Rotate One Bit Right (Memory or Accumulator)
 #if SIMULATE_W65C02S
-    {"BBR7", 0x7f, PROGRAM_COUNTER_ADDRS,        2, 2, BBR7_ins_}, // BBR7: Branch on Bit Reset 7
+    {"BBR7", 0x7f, ZP_ADDRS,                     3, 5, BBR7_ins_}, // BBR7: Branch on Bit Reset 7
 #else
     {"INV", 0x7f, INVALID_ADDRS},
 #endif
 #if SIMULATE_W65C02S
+    {"BRA", 0x80, PROGRAM_COUNTER_ADDRS,         2, 3, BRA_ins_},  // BRA: Branch Always 
 #else
     {"INV", 0x80, INVALID_ADDRS},
 #endif
@@ -266,6 +279,7 @@ const CPUInstruction instructions[] = {
 #endif
     {"DEY", 0x88, IMPLIED_ADDRS,                 1, 2, DEY_ins_},  // DEY: Decrement Index Y by One
 #if SIMULATE_W65C02S
+    {"BIT", 0x89, IMMEDIATE_ADDRS,               2, 2, BIT_ins_},  // BIT: Test Bits in Memory with Accumulator
 #else
     {"INV", 0x89, INVALID_ADDRS},
 #endif
@@ -275,12 +289,14 @@ const CPUInstruction instructions[] = {
     {"STA", 0x8d, ABS_ADDRS,                     3, 4, STA_ins_},  // STA: Store Accumulator in Memory
     {"STX", 0x8e, ABS_ADDRS,                     3, 4, STX_ins_},  // STX: Store Index X in Memory
 #if SIMULATE_W65C02S
+    {"BBS0", 0x8f, ZP_ADDRS,                     3, 5, BBS0_ins_}, // BBS0: Branch on Bit Set 0
 #else
     {"INV", 0x8f, INVALID_ADDRS},
 #endif
     {"BCC", 0x90, PROGRAM_COUNTER_ADDRS,         2, 2, BCC_ins_},  // BCC: Branch on Carry Clear
     {"STA", 0x91, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 6, STA_ins_},  // STA: Store Accumulator in Memory
 #if SIMULATE_W65C02S
+    {"STA", 0x92, ZP_INDIRECT_ADDRS,             2, 5, STA_ins_},  // STA: Store Accumulator in Memory
 #else
     {"INV", 0x92, INVALID_ADDRS},
 #endif
@@ -298,16 +314,18 @@ const CPUInstruction instructions[] = {
     {"TXS", 0x9a, IMPLIED_ADDRS,                 1, 2, TXS_ins_},  // TXS: Transfer Index X to Stack Register
     {"INV", 0x9b, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"STZ", 0x9c, ABS_ADDRS,                     3, 4, STZ_ins_},  // STZ: Store Zero
 #else
     {"INV", 0x9c, INVALID_ADDRS},
 #endif
     {"STA", 0x9d, ABS_INDEXED_X_ADDRS,           3, 5, STA_ins_},  // STA: Store Accumulator in Memory
 #if SIMULATE_W65C02S
+    {"STZ", 0x9e, ABS_INDEXED_X_ADDRS,           3, 5, STZ_ins_},  // STZ: Store Zero
 #else
     {"INV", 0x9e, INVALID_ADDRS},
 #endif
 #if SIMULATE_W65C02S
-    {"BBS1", 0x9f, PROGRAM_COUNTER_ADDRS,        2, 2, BBS1_ins_}, // BBS1: Branch on Bit Set 1
+    {"BBS1", 0x9f, ZP_ADDRS,                     3, 5, BBS1_ins_}, // BBS1: Branch on Bit Set 1
 #else
     {"INV", 0x9f, INVALID_ADDRS},
 #endif
@@ -331,13 +349,14 @@ const CPUInstruction instructions[] = {
     {"LDA", 0xad, ABS_ADDRS,                     3, 4, LDA_ins_},  // LDA: Load Accumulator with Memory
     {"LDX", 0xae, ABS_ADDRS,                     3, 4, LDX_ins_},  // LDX: Load Index X with Memory
 #if SIMULATE_W65C02S
-    {"BBS2", 0xaf, PROGRAM_COUNTER_ADDRS,        2, 2, BBS2_ins_}, // BBS2: Branch on Bit Set 2
+    {"BBS2", 0xaf, ZP_ADDRS,                     3, 5, BBS2_ins_}, // BBS2: Branch on Bit Set 2
 #else
     {"INV", 0xaf, INVALID_ADDRS},
 #endif
     {"BCS", 0xb0, PROGRAM_COUNTER_ADDRS,         2, 2, BCS_ins_},  // BCS: Branch on Carry Set
     {"LDA", 0xb1, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 5, LDA_ins_},  // LDA: Load Accumulator with Memory
 #if SIMULATE_W65C02S
+    {"LDA", 0xb2, ZP_INDIRECT_ADDRS,             2, 5, LDA_ins_},  // LDA: Load Accumulator with Memory
 #else
     {"INV", 0xb2, INVALID_ADDRS},
 #endif
@@ -358,7 +377,7 @@ const CPUInstruction instructions[] = {
     {"LDA", 0xbd, ABS_INDEXED_X_ADDRS,           3, 4, LDA_ins_},  // LDA: Load Accumulator with Memory
     {"LDX", 0xbe, ABS_INDEXED_Y_ADDRS,           3, 4, LDX_ins_},  // LDX: Load Index X with Memory
 #if SIMULATE_W65C02S
-    {"BBS3", 0xbf, PROGRAM_COUNTER_ADDRS,        2, 2, BBS3_ins_}, // BBS3: Branch on Bit Set 3
+    {"BBS3", 0xbf, ZP_ADDRS,                     3, 5, BBS3_ins_}, // BBS3: Branch on Bit Set 3
 #else
     {"INV", 0xbf, INVALID_ADDRS},
 #endif
@@ -378,6 +397,7 @@ const CPUInstruction instructions[] = {
     {"CMP", 0xc9, IMMEDIATE_ADDRS,               2, 2, CMP_ins_},  // CMP: Compare Memory with Accumulator
     {"DEX", 0xca, IMPLIED_ADDRS,                 1, 2, DEX_ins_},  // DEX: Decrement Index X by One
 #if SIMULATE_W65C02S
+    {"WAI", 0xcb, IMPLIED_ADDRS,                 1, 3, WAI_ins_},  // WAI: Wait for Interrupt
 #else
     {"INV", 0xcb, INVALID_ADDRS},
 #endif
@@ -385,13 +405,14 @@ const CPUInstruction instructions[] = {
     {"CMP", 0xcd, ABS_ADDRS,                     3, 4, CMP_ins_},  // CMP: Compare Memory with Accumulator
     {"DEC", 0xce, ABS_ADDRS,                     3, 6, DEC_ins_},  // DEC: Decrement Memory by One
 #if SIMULATE_W65C02S
-    {"BBS4", 0xcf, PROGRAM_COUNTER_ADDRS,        2, 2, BBS4_ins_}, // BBS4: Branch on Bit Set 4
+    {"BBS4", 0xcf, ZP_ADDRS,                     3, 5, BBS4_ins_}, // BBS4: Branch on Bit Set 4
 #else
     {"INV", 0xcf, INVALID_ADDRS},
 #endif
     {"BNE", 0xd0, PROGRAM_COUNTER_ADDRS,         2, 2, BNE_ins_},  // BNE: Branch on Result not Zero
     {"CMP", 0xd1, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 5, CMP_ins_},  // CMP: Compare Memory with Accumulator
 #if SIMULATE_W65C02S
+    {"CMP", 0xd2, ZP_INDIRECT_ADDRS,             2, 5, CMP_ins_},  // CMP: Compare Memory with Accumulator
 #else
     {"INV", 0xd2, INVALID_ADDRS},
 #endif
@@ -406,8 +427,13 @@ const CPUInstruction instructions[] = {
 #endif
     {"CLD", 0xd8, IMPLIED_ADDRS,                 1, 2, CLD_ins_},  // CLD: Clear Decimal Mode
     {"CMP", 0xd9, ABS_INDEXED_Y_ADDRS,           3, 4, CMP_ins_},  // CMP: Compare Memory with Accumulator
-    {"INV", 0xda, INVALID_ADDRS},
 #if SIMULATE_W65C02S
+    {"PHX", 0xda, STACK_ADDRS,                   1, 3, PHX_ins_},  // PHX: Push X
+#else
+    {"INV", 0xda, INVALID_ADDRS},
+#endif
+#if SIMULATE_W65C02S
+    {"STP", 0xdb, IMPLIED_ADDRS,                 1, 3, STP_ins_},  // STP: Stop the Processor
 #else
     {"INV", 0xdb, INVALID_ADDRS},
 #endif
@@ -415,7 +441,7 @@ const CPUInstruction instructions[] = {
     {"CMP", 0xdd, ABS_INDEXED_X_ADDRS,           3, 4, CMP_ins_},  // CMP: Compare Memory with Accumulator
     {"DEC", 0xde, ABS_INDEXED_X_ADDRS,           3, 7, DEC_ins_},  // DEC: Decrement Memory by One
 #if SIMULATE_W65C02S
-    {"BBS5", 0xdf, PROGRAM_COUNTER_ADDRS,        2, 2, BBS5_ins_}, // BBS5: Branch on Bit Set 5
+    {"BBS5", 0xdf, ZP_ADDRS,                     3, 5, BBS5_ins_}, // BBS5: Branch on Bit Set 5
 #else
     {"INV", 0xdf, INVALID_ADDRS},
 #endif
@@ -439,13 +465,17 @@ const CPUInstruction instructions[] = {
     {"SBC", 0xed, ABS_ADDRS,                     3, 4, SBC_ins_},  // SBC: Subtract Memory from Accumulator with Borrow
     {"INC", 0xee, ABS_ADDRS,                     3, 6, INC_ins_},  // INC: Increment Memory by One
 #if SIMULATE_W65C02S
-    {"BBS6", 0xef, PROGRAM_COUNTER_ADDRS,        2, 2, BBS6_ins_}, // BBS6: Branch on Bit Set 6
+    {"BBS6", 0xef, ZP_ADDRS,                     3, 5, BBS6_ins_}, // BBS6: Branch on Bit Set 6
 #else
     {"INV", 0xef, INVALID_ADDRS},
 #endif
     {"BEQ", 0xf0, PROGRAM_COUNTER_ADDRS,         2, 2, BEQ_ins_},  // BEQ: Branch on Result Zero
     {"SBC", 0xf1, ZP_INDIRECT_INDEXED_Y_ADDRS,   2, 5, SBC_ins_},  // SBC: Subtract Memory from Accumulator with Borrow
+#if SIMULATE_W65C02S
+    {"SBC", 0xf2, ZP_INDIRECT_ADDRS,             2, 5, SBC_ins_},  // SBC: Subtract Memory from Accumulator with Borrow
+#else
     {"INV", 0xf2, INVALID_ADDRS},
+#endif
     {"INV", 0xf3, INVALID_ADDRS},
     {"INV", 0xf4, INVALID_ADDRS},
     {"SBC", 0xf5, ZP_INDEXED_X_ADDRS,            2, 4, SBC_ins_},  // SBC: Subtract Memory from Accumulator with Borrow
@@ -458,6 +488,7 @@ const CPUInstruction instructions[] = {
     {"SED", 0xf8, IMPLIED_ADDRS,                 1, 2, SED_ins_},  // SED: Set Decimal Flag
     {"SBC", 0xf9, ABS_INDEXED_Y_ADDRS,           3, 4, SBC_ins_},  // SBC: Subtract Memory from Accumulator with Borrow
 #if SIMULATE_W65C02S
+    {"PLX", 0xfa, IMPLIED_ADDRS,                 1, 4, PLX_ins_},  // PLX: Pull X
 #else
     {"INV", 0xfa, INVALID_ADDRS},
 #endif
@@ -466,7 +497,7 @@ const CPUInstruction instructions[] = {
     {"SBC", 0xfd, ABS_INDEXED_X_ADDRS,           3, 4, SBC_ins_},  // SBC: Subtract Memory from Accumulator with Borrow
     {"INC", 0xfe, ABS_INDEXED_X_ADDRS,           3, 7, INC_ins_},  // INC: Increment Memory by One
 #if SIMULATE_W65C02S
-    {"BBS7", 0xff, PROGRAM_COUNTER_ADDRS,        2, 2, BBS7_ins_}, // BBS7: Branch on Bit Set 7
+    {"BBS7", 0xff, ZP_ADDRS,                     3, 5, BBS7_ins_}, // BBS7: Branch on Bit Set 7
 #else
     {"INV", 0xff, INVALID_ADDRS},
 #endif
@@ -682,7 +713,12 @@ void printInstruction(CPU* cpu, CPUInstruction* instruction, uint8_t* rawArgs, u
         }
     }
 
+#if SIMULATE_W65C02S
+    char mnemonic[5] = {instruction->mnemonic[0], instruction->mnemonic[1], 
+                        instruction->mnemonic[2], instruction->mnemonic[3], 0};
+#else
     char mnemonic[4] = {instruction->mnemonic[0], instruction->mnemonic[1], instruction->mnemonic[2], 0};
+#endif
     outputLen += sprintf(outputLine+outputLen, "-  %s ", mnemonic);
     
     uint16_t rawArg_u16 = rawArgs[0] | (rawArgs[1] << 8);
@@ -1029,7 +1065,11 @@ void EOR_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 void INC_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
     data++;
     
-    interactWithPeripheral(cpu, dir, data, WRITE_PERIPH, NULL);
+    if(instruction->addressing == ACCUMULATOR_ADDRS) {
+        cpu->acc = data;
+    }else {
+        interactWithPeripheral(cpu, dir, data, WRITE_PERIPH, NULL);
+    }
 
     cpu->status.flags.zero = data == 0;
     cpu->status.flags.negative = data >= 0x80;
@@ -1321,3 +1361,199 @@ void TYA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
     cpu->status.flags.negative = cpu->acc >= 0x80;
     cpu->status.flags.zero = cpu->acc == 0;
 }
+
+/***************************************************************************************************
+ * W65C02S Instructions
+ **************************************************************************************************/
+
+#if SIMULATE_W65C02S
+void BRA_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    // The data variable is the displacement or delta to add to the PC.
+    sprintf(cpu->funcComment, "Always -> Jump taken to 0x%04x", dir);
+    cpu->pc = dir;
+}
+
+void PHX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0) {
+        printWarning("Stack overflow!\n");
+    }
+    interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->x, WRITE_PERIPH, NULL);
+}
+
+void PHY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0) {
+        printWarning("Stack overflow!\n");
+    }
+    interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->y, WRITE_PERIPH, NULL);
+}
+
+void PLX_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0xFF) {
+        printWarning("Stack rolled back to 0!\n");
+    }
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, &cpu->x);
+
+    cpu->status.flags.negative = cpu->x >= 0x80;
+    cpu->status.flags.zero = cpu->x == 0;
+}
+
+void PLY_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    if(cpu->stack == 0xFF) {
+        printWarning("Stack rolled back to 0!\n");
+    }
+    interactWithPeripheral(cpu, 0x0100 | ++cpu->stack, 0, READ_PERIPH, &cpu->y);
+
+    cpu->status.flags.negative = cpu->y >= 0x80;
+    cpu->status.flags.zero = cpu->y == 0;
+}
+
+void STZ_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+    interactWithPeripheral(cpu, dir, 0, WRITE_PERIPH, NULL);
+}
+
+void TRB_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void TSB_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBR7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void BBS7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void RMB7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB0_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB1_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB2_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB3_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB4_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB5_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB6_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void SMB7_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void STP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+void WAI_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
+
+}
+
+
+#endif // Simulate W65C02S
