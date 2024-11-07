@@ -13,7 +13,7 @@ ACIA_CTRL   = $A003
 OP1         = 0
 OP2         = 4
 RESULT      = 8     ; 4 BYTES + (4 bytes for remainder in div_u32)
-AUX         = 16    ; 16 BIT ACCUMULATOR
+AUX         = 16    ; 4 BYTES ACCUMULATOR
 
 BUFF        = $0200   ; Input buffer of 256 bytes.
 BUFF_HEAD   = $20     ; Write position
@@ -59,13 +59,11 @@ new_input:
   ldx #$FF              ; Reset the stack pointer.
   txs
 
-  lda #$10             ; Erase the 16 bit area of the CALCULATOR zp.
-  tax
-  lda #0
+  ldx #31               ; Erase the 32 bit area of the CALCULATOR zp.
 erase_calculator_area:
+  stz CALC_OPERATION,x
   dex
-  sta CALC_OPERATION,x
-  bne erase_calculator_area
+  bpl erase_calculator_area
 
   lda #$0D           ; Carriage return
   jsr print_acia
@@ -74,7 +72,8 @@ erase_calculator_area:
   lda #'>'
   jsr print_acia
 
-wait_input:           
+wait_input:
+  wai
   lda BUFF_HEAD
   cmp BUFF_PRINT
   beq wait_input      ; If there's no new input, wait here.
@@ -83,22 +82,28 @@ wait_input:
   bcs activate_rts
   cmp #10             ; Check if there less than 10 characters without printing.
   bcc deacivate_rts
-  jmp print_new_char
+  jmp get_new_char
 
 activate_rts:
   lda ACIA_CMD
   ora #%00001000      ; Activate the RTS
   sta ACIA_CMD
-  jmp print_new_char
+  jmp get_new_char
 
 deacivate_rts:
   lda ACIA_CMD
   and #%11110111      ; Deactivate the RTS
   sta ACIA_CMD
 
-print_new_char:
+get_new_char:
   ldx BUFF_PRINT      ; Head and print index aren't the same, there's something to print.
   lda BUFF,x
+  cmp #$d             ; If it's the enter key, change it for an '=' sign.
+  bne print_new_char
+  lda #'='
+  sta BUFF,x          ; Modify the symbol for the =.
+
+print_new_char:
   pha
   jsr print_acia
   inc BUFF_PRINT
@@ -113,12 +118,11 @@ print_new_char:
   cmp #'/'
   beq set_operation
 
-  cmp #'='
+  cmp #'='              ; Enter pressed (stored as an =) => Calculate.
   beq run_operation
 
 check_enter_press:
-  cmp #$D             ; Compare if the current input is /r  => End of program.
-
+  cmp #'q'             ; Compare if the current input is q  => Quit the program.
   bne wait_input
 
 exit:
@@ -130,7 +134,7 @@ print_error_2:        ; Medium jump :)
 set_operation:
   pha
   lda CALC_OPERATION
-  bne print_error_2           ; Two operation symbols have been inserted! => ERROR
+  bne print_error_2         ; Two operation symbols have been inserted! => ERROR
   pla
   sta CALC_OPERATION        ; Save the operation.
 
@@ -144,7 +148,7 @@ set_operation:
 
 run_operation:
   lda CALC_OPERATION
-  beq print_error_2           ; Error if the equals was pressed without already having an operator.
+  beq print_error_2         ; Error if the equals was pressed without already having an operator.
   lda #<CALC_OP2            ; Put the second operand in the CALC_OP_DIRECTION.
   sta CALC_OP_DIRECTION
   lda #>CALC_OP2
@@ -161,19 +165,27 @@ run_operation:
   lda CALC_OP2+1
   sta OP2+1
 
-  lda CALC_OPERATION
-  cmp #'+'            
-  jsr sum_u16
-  jmp operations_done
+  ; The following is a 'C-like' switch clause.
+  lda #>(operations_done-1)   ; Little trick! By pushing the address of the end of the switch  
+  pha                         ; statement, we're setting the direction of return from the next call 
+  lda #<(operations_done-1)   ; to RTS. This call will be INSIDE sum_u16, that's why I don't call 
+  pha                         ; it with JSR! This way, I can save on some extra bytes by not using 
+  lda CALC_OPERATION          ; JMP or BRA.
+  cmp #'+'                    ; I subtract 1 from the address because RTS always adds 1 more to the
+  bne next_op_1               ; direction stored on the stack.
+  jmp sum_u16
 
+next_op_1:
   cmp #'-'
-  jsr sub_u16
-  jmp operations_done
+  bne next_op_2
+  jmp sub_u16
 
+next_op_2:
   cmp #'*'
-  jsr mult_u16
-  jmp operations_done
+  bne next_op_3
+  jmp mult_u16
 
+next_op_3:
   cmp #'/'
   jsr div_u16
   stz RESULT+2              ; Remove the remainder from the result after division.
@@ -183,11 +195,12 @@ operations_done:
   ; The result is in HEX. To convert to DEC, start dividing by 10 and print the remainder from right
   ; to left. Result is stored in RESULT.
   ldy #0                    ; Y will store the number of digits the number has.
+
 hex2dec:
   ldx #3
 hex2dec_set_OP1_loop:
   lda RESULT,x
-  lda OP1,x
+  sta OP1,x
   dex
   bpl hex2dec_set_OP1_loop
 
@@ -246,9 +259,14 @@ parse_number_next_digit:
   sta OP1+1
   lda #10
   sta OP2
-  lda #0
-  sta OP2+1
+  stz OP2+1
   jsr mult_u16
+
+  ldy #$68
+  lda RESULT
+  lda RESULT+1
+  lda RESULT+2
+  lda RESULT+3
 
   lda RESULT+2              ; Check if the number is getting larger than 16 bits.
   bne print_overflow
@@ -289,12 +307,10 @@ parse_number_next_digit:
   sta (CALC_OP_DIRECTION),y
 
   jmp parse_number_next_digit
-
 parse_number_return:
   inc BUFF_PRINT            ; Restore the PRINT index.
   inc BUFF_TAIL             ; Pass the buff TAIL over the operator index.
   rts
-  
 
 print_error:                ; PRINT_STRING_ADDRS = error_str and print it.
   lda #<error_str
@@ -335,13 +351,12 @@ wait_for_clear:
 ; MATH OPERATIONS
 ; **************************************************************************************************
 clear_results_region:
-  lda #0
-  sta RESULT
-  sta RESULT+1
-  sta RESULT+2
-  sta RESULT+3
-  sta AUX
-  sta AUX+1
+  ldx #11
+  lda #0        ; THE ACCUMULATOR NEEDS TO BE ZERO FOR THESE OPERATIONS!
+clear_results_region_loop:
+  sta RESULT,x
+  dex
+  bpl clear_results_region_loop
   rts
 
 sum_u16:
@@ -367,6 +382,7 @@ sub_u16:
   RTS
 
 mult_u16:
+  jsr clear_results_region
   LDX #16
 L1_u16:
   LSR OP2+1
@@ -429,22 +445,27 @@ next_div_u16:
 
 div_u32:
   jsr clear_results_region
-  ; REMAINDER: LSB IN RESULT +2, MSB IN RESULT + 3
-  LDX #16
+  ; REMAINDER: LSB IN RESULT+4, MSB IN RESULT+7
+  LDX #32
 test_div_u32:
   ASL RESULT    ; Move the result to the left and INC if remainder >= OP2.
   ROL RESULT+1
   ROL RESULT+2
   ROL RESULT+3
+  
   ASL OP1
   ROL OP1+1
+  ROL OP1+2
+  ROL OP1+3
   ROL RESULT+4  ; Charge a bit into the remainder.
   ROL RESULT+5
+  ROL RESULT+6
+  ROL RESULT+7
 
   LDA RESULT+4  ; Try to subtract the divisor to the remainder.
   SEC
   SBC OP2
-  STA AUX           ; SAVE THE LSB OF THE RESULT IN Y
+  STA AUX       ; SAVE THE LSB OF THE RESULT IN AUX
   LDA RESULT+5
   SBC OP2+1
   STA AUX+1
@@ -453,20 +474,20 @@ test_div_u32:
   STA AUX+2
   LDA RESULT+7
   SBC OP2+3
-  STA AUX+3
+  ; STA AUX+3
 
   ; NOW CHECK IF THE NUMBER IN AUX IS POSITIVE OR ZERO.
   ; AN ABSOLUTE NEGATIVE RESULT IN SBC WILL ALWAYS OUTPUT C=0
   BCC next_div_u32
 
-  ; if reached here, subtraction was either zero or positive.
+  ; If reached here, subtraction was either zero or positive.
   STA RESULT+7  ; If positive, store the result of the subtraction in the remainder.
   LDA AUX+2
   STA RESULT+6
   LDA AUX+1
   STA RESULT+5
   LDA AUX
-  STA RESULT
+  STA RESULT+4
 
   INC RESULT    ; Put a one on the LSB of the result.
 next_div_u32:

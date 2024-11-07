@@ -35,7 +35,7 @@ $ socat -d -d pty,link=$HOME/ttyEmu0,raw,echo=0,crtscts pty,link=$HOME/ttyEmu1,r
 
 Use either of the two links as argument for the emu6502 (on a new terminal):
 ```
-$ ./build/emu6502 -s $HOME/ttyEmu0 a.out
+$ ./build/emu6502 -s $HOME/ttyEmu0 -o run.out a.out
 ``` 
 
 On (yet) another terminal, you can `cat` the other route to listen to outgoing data from the simulator:

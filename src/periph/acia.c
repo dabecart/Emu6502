@@ -329,7 +329,9 @@ void updateACIA(void* pcpu, Peripheral* periph) {
     unsigned long serialDeltaRX = cpuDeltaRX * 115200 / CPU_CLK_SPEED;
 #endif
 
-    if(serialDeltaRX >= acia->commsBitLength) {
+    // Give some time between inputs and when the CPU is doing WAI, pass inputs as quickly as 
+    // possible (the CPU won't be running in this case).
+    if(serialDeltaRX >= acia->commsBitLength || cpu->doingWAI) {
         char tempRead;
         int rxByteCount = readFromSerialACIA_(acia, 1, &tempRead);
         if(rxByteCount == 1) {

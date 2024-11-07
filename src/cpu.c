@@ -521,6 +521,7 @@ void initCPU(CPU* cpu) {
 
     cpu->nestingIndex = 0;
     cpu->haltProgram = 0;
+    cpu->doingWAI = 0;
 
     // Prints all nested functions.
     cpu->nestingPrintIndex = 256;
@@ -546,6 +547,7 @@ void routineCPU(CPU* cpu) {
         interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->status.val, WRITE_PERIPH, NULL);
 
         cpu->status.flags.irqDisable = 1;
+        cpu->doingWAI = 0;
 
         // Get the IRQB vector.
         interactWithPeripheral(cpu, 0xFFFE, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
@@ -568,6 +570,7 @@ void routineCPU(CPU* cpu) {
         interactWithPeripheral(cpu, 0x0100 | cpu->stack--, cpu->status.val, WRITE_PERIPH, NULL);
 
         cpu->status.flags.irqDisable = 1;
+        cpu->doingWAI = 0;
 
         // Get the NMIB vector.
         interactWithPeripheral(cpu, 0xFFFA, 0, READ_PERIPH, (uint8_t*) (&cpu->pc));
@@ -577,6 +580,10 @@ void routineCPU(CPU* cpu) {
 
         printMessage("IRQ to 0x%04x. Stacked PC:0x%04x and STATUS:0x%02x\n", 
                      cpu->pc, previousPC, cpu->status.val);
+        return;
+    }
+
+    if(cpu->doingWAI) {
         return;
     }
 
@@ -1552,7 +1559,7 @@ void STP_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data)
 }
 
 void WAI_ins_(CPU* cpu, CPUInstruction* instruction, uint16_t dir, uint8_t data) {
-
+    cpu->doingWAI = 1;
 }
 
 

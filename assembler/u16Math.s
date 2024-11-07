@@ -9,17 +9,17 @@
 ;   - Mult and div only work with absolute terms.
 ; **************************************************************************************************
 
-OP1_VAL_L = $5a
-OP1_VAL_H = $04
-OP2_VAL_L = $03
-OP2_VAL_H = $01
+OP1_VAL_L = $00
+OP1_VAL_H = $00
+OP2_VAL_L = $0a
+OP2_VAL_H = $00
 
     .org $C000
 
 OP1 = 0
-OP2 = 2
-RESULT = 4    ; 4 BYTES
-AUX = 8       ; 16 BIT ACCUMULATOR
+OP2 = 4
+RESULT = 8    ; 4 BYTES
+AUX = 16       ; 16 BIT ACCUMULATOR
 
 reset:
   SEI				  
@@ -27,19 +27,19 @@ reset:
 	TXS
 	CLD       ; Clear decimal mode.
 
-  JSR set_vals
-  JSR sum_u16
-  LDA RESULT
-  LDA RESULT+1
+  ; JSR set_vals
+  ; JSR sum_u16
+  ; LDA RESULT
+  ; LDA RESULT+1
 
-  NOP
+  ; NOP
 
-  JSR set_vals
-  JSR sub_u16
-  LDA RESULT
-  LDA RESULT+1
+  ; JSR set_vals
+  ; JSR sub_u16
+  ; LDA RESULT
+  ; LDA RESULT+1
 
-  NOP
+  ; NOP
 
   JSR set_vals
   JSR mult_u16
@@ -48,14 +48,14 @@ reset:
   LDA RESULT+2
   LDA RESULT+3
 
-  NOP
+  ; NOP
 
-  JSR set_vals
-  JSR div_u16
-  LDA RESULT
-  LDA RESULT+1
-  LDA RESULT+2
-  LDA RESULT+3
+  ; JSR set_vals
+  ; JSR div_u16
+  ; LDA RESULT
+  ; LDA RESULT+1
+  ; LDA RESULT+2
+  ; LDA RESULT+3
 
   BRK   ; End of program.
 

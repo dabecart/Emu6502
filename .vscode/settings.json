@@ -8,5 +8,12 @@
         "acia.h": "c",
         "unistd.h": "c",
         "functional": "c"
-    }
+    },
+    "[ca65]": {
+        "editor.quickSuggestions": {
+          "other": false,      
+          "comments": false,   
+          "strings": false     
+        }
+      }
 }

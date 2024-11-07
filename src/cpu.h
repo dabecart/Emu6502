@@ -48,6 +48,8 @@ typedef struct CPU {
     int nestingPrintIndex; 
     // When set to 1, the CPU is being halted.
     uint8_t haltProgram;
+    // When WAI is called, the program waits until an interruption occurs.
+    uint8_t doingWAI;
 
     // Function comments.
     char funcComment[CPU_COMMENT_LENGTH];
