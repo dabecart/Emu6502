@@ -72,12 +72,20 @@ erase_calculator_area:
   lda #'>'
   jsr print_acia
 
-wait_input:
-  wai
-  lda BUFF_HEAD
-  cmp BUFF_PRINT
-  beq wait_input      ; If there's no new input, wait here.
+  ; This makes sure that at the start of the program the tail is aligned with what's being printed
+  ; onscreen. Useful because when an error occurs the indices get all over the place.
+  lda BUFF_PRINT
+  sta BUFF_TAIL
 
+wait_input:
+  lda BUFF_HEAD
+  sec
+  sbc BUFF_PRINT
+  bne check_input_length      ; If there's an input start the process.
+  wai
+  bra wait_input
+
+check_input_length:
   cmp #200            ; Check if there are more than 200 characters without printing.
   bcs activate_rts
   cmp #10             ; Check if there less than 10 characters without printing.
