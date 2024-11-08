@@ -1,8 +1,11 @@
 ; **************************************************************************************************
-; acia_hw_ctrl.s
-; Prints a hello message and awaits user input. If a lot of text is pasted at once, the 6502 will 
-; trigger the flow control signals of the ACIA to stop the pasting from the PC until the buffer 
-; is empty enough. Once the user presses enter, the program ends.
+; calc_acia_hw_ctrl.s
+; Prints a welcome message and awaits user input. 
+; This demo works as a calculator! Use it to sum, subtract, multiply and divide 16 bit numbers!
+; Exit the program with the letter q.
+; If a lot of text is pasted at once, the 6502 will trigger the flow control signals of the ACIA to
+; stop the pasting from the PC until the buffer is empty enough. Once the user presses enter, the
+; program ends. Try to paste a lot of operations to see the effect.
 ; **************************************************************************************************
 
 ACIA_DATA   = $A000
@@ -87,20 +90,20 @@ wait_input:
 
 check_input_length:
   cmp #200            ; Check if there are more than 200 characters without printing.
-  bcs activate_rts
-  cmp #10             ; Check if there less than 10 characters without printing.
-  bcc deacivate_rts
+  bcs deacivate_rts
+  cmp #20             ; Check if there less than 20 characters without printing.
+  bcc activate_rts
   jmp get_new_char
 
-activate_rts:
+activate_rts:         ; Note is RTS and not #RTS.
   lda ACIA_CMD
-  ora #%00001000      ; Activate the RTS
+  and #%11110111      ; Deactivate the RTS
   sta ACIA_CMD
   jmp get_new_char
 
-deacivate_rts:
+deacivate_rts:        ; Note is RTS and not #RTS.
   lda ACIA_CMD
-  and #%11110111      ; Deactivate the RTS
+  ora #%00001000      ; Activate the RTS 
   sta ACIA_CMD
 
 get_new_char:
@@ -292,9 +295,9 @@ parse_number_next_digit:
   inc BUFF_TAIL             ; Increment it for the next iteration.
   lda BUFF,x
   cmp #'0'                  ; Check if the digit is valid.
-  bcc print_error           ; If less than zero, print error and go back to the start.
+  bcc print_error_inc_BUFF           ; If less than zero, print error and go back to the start.
   cmp #':'                  ; : is the next character after '9'
-  bcs print_error
+  bcs print_error_inc_BUFF
 
   sec
   sbc #'0'                  ; Convert the digit from ASCII to integer
@@ -320,6 +323,8 @@ parse_number_return:
   inc BUFF_TAIL             ; Pass the buff TAIL over the operator index.
   rts
 
+print_error_inc_BUFF:
+  inc BUFF_PRINT            ; Increment the BUFF_PRINT that was temporarily reduced by one.
 print_error:                ; PRINT_STRING_ADDRS = error_str and print it.
   lda #<error_str
   sta PRINT_STRING_ADDRS
@@ -334,6 +339,7 @@ print_overflow:                ; PRINT_STRING_ADDRS = overflow_str and print it.
   lda #>overflow_str
   sta PRINT_STRING_ADDRS+1
   jsr print_str
+  inc BUFF_PRINT               ; Increment the BUFF_PRINT that was temporarily reduced by one.
   jmp new_input
 
 print_str:

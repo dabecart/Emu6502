@@ -32,6 +32,15 @@
 //    Inputting data is slower, but makes the simulator CPU cycle count more realistic.
 #define ACIA_SIMULATE_RX_WAIT 0
 
+// Normally, the terminal will send data to the simulator much faster than it can process the 
+// incoming data, detect it and trigger the RTS=0 so that the terminal pauses the data transmission.
+// 0: The simulator will stop passing data from the serial port to the ACIA simulator when RTS is 0.
+// This is similar to what would happen on the real device, as it is expected that the 6502 will be
+// running fast enough to process the data and listen to new IRQs.
+// 1: The simulator won't filter data when RTS is 0 and will expect the terminal to respond "in 
+// time".
+#define ACIA_STRICT_RTS       0
+
 void setOutputFileSimulator(char* file);
 void printMessage(char* str, ...);
 void printWarning(char* str, ...);

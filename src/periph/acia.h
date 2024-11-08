@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 typedef enum ClockSourceACIA {
     ACIA_CS_EXTERNAL = 0,
@@ -102,9 +103,12 @@ typedef struct PeripheralACIA {
     int txPending;
     unsigned long long cpuClockOnTX;
     unsigned long long cpuClockOnRX;
+    int rtsOn;
 
     int commsBitLength; // Number of bits sent per communications byte.
     int baudrate;       // Numerical baudrate.
+
+    int useSoftwareControl;
 } PeripheralACIA;
 
 void initializeACIA(Peripheral* periph);
@@ -117,14 +121,25 @@ void freeACIA(Peripheral* periph);
 
 void setSerialACIA(Peripheral* periph, char* serialRoute);
 
+void enableSoftwareControlACIA(Peripheral* acia);
+
+
 int aciaBaudrateToInt_(int aciaBauds);
 
 int intBaudrateToTermios_(int bauds);
 
-int setSerialConfigurationACIA_(PeripheralACIA *acia);
+int setSerialConfigurationACIA_(PeripheralACIA* acia);
 
-int writeToSerialACIA_(PeripheralACIA *acia, const char* msg, int len);
+int writeToSerialACIA_(PeripheralACIA* acia, const char* msg, int len);
 
-int readFromSerialACIA_(PeripheralACIA *acia, int len, char* msg);
+int readFromSerialACIA_(PeripheralACIA* acia, int len, char* msg);
+
+/****************************************** FUNCTION ***********************************************
+ \brief Sets the RTS of the outgoing serial messages. 
+ \param acia. Pointer to the ACIA.
+ \param rts. Wanted RTS level on the RTS line.
+ \return None.
+***************************************************************************************************/
+void setRTSLevel_(PeripheralACIA* acia, int rts);
 
 #endif // ACIA_PERIPH_h

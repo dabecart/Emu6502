@@ -31,6 +31,7 @@ CPU cpu;
 char* romFile = NULL;
 char* outputFile = NULL;
 char* serialRoute = NULL;
+int useSoftwareControl = 0;
 void printHelp();
 void fetchArguments(int argc, char **argv);
 
@@ -48,6 +49,7 @@ int main(int argc, char **argv) {
     initializeRAM(&ram);
     initializeACIA(&acia1);
     setSerialACIA(&acia1, serialRoute);
+    if(useSoftwareControl)  enableSoftwareControlACIA(&acia1);
 
     // Add peripherals to the peripherals list.
     addPeripheral(&rom);
@@ -118,6 +120,10 @@ void fetchArguments(int argc, char **argv) {
                 }else {
                     printError("Missing serial (-s) port. Use -h to list usages.\n");
                     exit(-1);
+                }
+            }else if(arg[1] == '-') {
+                if(strcmp(arg+2, "hw2sw") == 0) {
+                    useSoftwareControl = 1;
                 }
             }
         }else{

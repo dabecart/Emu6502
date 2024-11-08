@@ -18,6 +18,10 @@ void initializeACIA(Peripheral* periph) {
     // All zero except...
     acia->command.irqEnable = 1;
     acia->status.txEmpty = 1;
+    acia->rtsOn = 1;
+
+    // Unless specified, do not use software control.
+    acia->useSoftwareControl = 0;
 
     // Pass the values and functions to the peripheral struct.
     periph->data = acia;
@@ -122,11 +126,15 @@ void interactACIA(
                 switch (inReg.txControls)
                 {
                 case ACIA_TXC_IRQoff_RTSBhigh: {
+                    // Passes the output of #RTS without inversion.
+                    setRTSLevel_(acia, 1);
                     commentIndex += sprintf(cpu->funcComment+commentIndex, "IRQ off, RTS# high.");
                     break;
                 }
 
                 case ACIA_TXC_IRQon_RTSBlow: {
+                    // Passes the output of #RTS without inversion.
+                    setRTSLevel_(acia, 0);
                     commentIndex += sprintf(cpu->funcComment+commentIndex, "IRQ on, RTS# low.");
                     break;
                 }
@@ -137,6 +145,8 @@ void interactACIA(
                     inReg.txControls = ACIA_TXC_IRQoff_RTSBlow;
                 }
                 case ACIA_TXC_IRQoff_RTSBlow: {
+                    // Passes the output of #RTS without inversion.
+                    setRTSLevel_(acia, 0);
                     commentIndex += sprintf(cpu->funcComment+commentIndex, "IRQ off, RTS# high.");
                     break;
                 }
@@ -330,8 +340,10 @@ void updateACIA(void* pcpu, Peripheral* periph) {
 #endif
 
     // Give some time between inputs and when the CPU is doing WAI, pass inputs as quickly as 
-    // possible (the CPU won't be running in this case).
-    if(serialDeltaRX >= acia->commsBitLength || cpu->doingWAI) {
+    // possible (the CPU won't be running in this case). 
+    // If RTS is OFF and ACIA_STRICT_RTS is 0, the data stream will be paused. If ACIA_STRICT_RTS is
+    // 1, pay no heed to what current level RTS has.
+    if((serialDeltaRX >= acia->commsBitLength || cpu->doingWAI) && (acia->rtsOn || ACIA_STRICT_RTS)) {
         char tempRead;
         int rxByteCount = readFromSerialACIA_(acia, 1, &tempRead);
         if(rxByteCount == 1) {
@@ -402,7 +414,9 @@ void setSerialACIA(Peripheral* periph, char* serialRoute) {
     tty.c_iflag &= ~(IXON | IXOFF | IXANY);         // Shut off xon/xoff ctrl.
 
     tty.c_cflag |= (CLOCAL | CREAD);                // Enable reading.
-    tty.c_cflag |= CRTSCTS;                         // Enable CRS/CTS.
+    tty.c_cflag &= ~CRTSCTS;                        // Disable automatic CRS/CTS.
+
+    tcflush(acia->serial, TCIOFLUSH);               // Send remaining data before changing settings.
 
     if (tcsetattr(acia->serial, TCSANOW, &tty) != 0) {
         perror("Error setting ACIA serial port attributes");
@@ -410,7 +424,8 @@ void setSerialACIA(Peripheral* periph, char* serialRoute) {
         exit(-1);
     }
 
-    const char *msg = "######## ACIA connected ########\r\n";
+    // Send too a XON at the start, just in case.
+    const char *msg = "\x11######## ACIA connected ########\r\n";
     writeToSerialACIA_(acia, msg, strlen(msg));
 }
 
@@ -565,4 +580,37 @@ int readFromSerialACIA_(PeripheralACIA *acia, int len, char* msg) {
         printf("\n");
     }
     return readBytes;
+}
+
+void setRTSLevel_(PeripheralACIA* acia, int rts) {
+    if(acia == NULL || acia->serial <= 0)   return;
+
+    acia->rtsOn = rts;
+
+    if(acia->useSoftwareControl) {
+        if(rts) {
+            char msg = 0x11;    // XON
+            writeToSerialACIA_(acia, &msg, 1);
+        }else {
+            char msg = 0x13;    // XOFF
+            writeToSerialACIA_(acia, &msg, 1);
+        }
+    }else {
+        if(rts) {
+            if(ioctl(acia->serial, TIOCMBIS, (int[]){TIOCMBIS}) == -1) {
+                perror("Couldn't set RTS ON");
+            }
+        }else {
+            if(ioctl(acia->serial, TIOCMBIC, (int[]){TIOCMBIC}) == -1) {
+                perror("Couldn't set RTS OFF");
+            }
+        }
+    }
+}
+
+void enableSoftwareControlACIA(Peripheral* acia) {
+    if(acia == NULL) return;
+
+    PeripheralACIA* aciap = (PeripheralACIA*) acia->data;
+    aciap->useSoftwareControl = 1;
 }
